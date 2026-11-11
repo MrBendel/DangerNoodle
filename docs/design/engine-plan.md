@@ -3,11 +3,20 @@
 How the design ([README.md](README.md)) maps onto the Game Boy Color and the RogueGB
 engine. Proposals, not decisions: change freely.
 
-## Dungeons: the body is background tiles
+## Dungeons: a 16×16 grid, the body in background tiles
 
-- **Grid:** 8×8-pixel cells, one screen per room: a 20×16-cell playfield (160×128 px)
-  with a 2-row HUD below it. Flip-screen rooms fit "restart the room" and need no
-  scrolling. A 16×16 grid would give only 10×8 cells, too small for length puzzles.
+- **Grid: 16×16 blocks, like Zelda's dungeons** (decided 2026-11-11). A segment is one
+  block, the same size as the 16×16 enemies, so everything shares one grid. The
+  160×128 playfield is 10×8 blocks; a one-screen room with walls all round has 8×6 open
+  blocks, as in Link's Awakening. Flip-screen rooms fit "restart the room".
+- **Room size vs length puzzles:** 8×6 open blocks (48) is tight for long bodies, four
+  corners and head-and-tail buttons. Options when the first puzzles are built: thinner
+  (8 px) walls, rooms bigger than a screen that scroll (RogueGB's camera already does
+  2×2-screen rooms), or keeping lengths short and puzzles dense. Prototype one first.
+- **Smooth movement:** stepping 16 px at once reads as choppy at slow speeds. The usual
+  trick: the head and the tail tip are 16×16 sprites (two hardware sprites each) that
+  slide between blocks every frame, while the body behind them stays background blocks
+  that change once per step. The placeholder steps a block at a time for now.
 - **The HUD is at the bottom, on the window layer** (as in RogueGB, decided there
   2026-10-12). The hardware draws the window from line WY down to the bottom of the
   screen for free; a top HUD would need a scanline interrupt every frame to switch the
@@ -15,21 +24,22 @@ engine. Proposals, not decisions: change freely.
   sprites from drawing over it. It also suits the overworld: the background scrolls
   under a fixed window. `gfx.h` defines `HUD_ROWS`, `PLAYFIELD_TH` and `HUD_WY` (128).
 - **The body is drawn in the background, not sprites.** The hardware shows 40 sprites,
-  10 per scanline: a sprite body would flicker or vanish past ~10 segments. Background
-  tiles have no limit, and a move changes at most 3-4 tiles (the vblank queue already
-  does this in the placeholder `src/play.c`).
+  10 per scanline: a 16×16 segment is 2 of them, so a sprite body would flicker past
+  ~5 segments in a row. Background blocks have no limit. A move changes at most 4
+  blocks, each two 2-tile strips in the vblank queue (`STRIP_MAX` is 8 for this); the
+  placeholder `src/play.c` does exactly this with 16×16 metatiles.
 - **Coatings are tile attributes.** On the Color each background tile picks one of 8
   palettes, so a fire- or ice-coated segment is the same tile on another palette, and the
   bulge travelling down the body is a palette or tile change per move. Half-and-half
   bodies come at no cost.
-- **Turns and corners:** the segment tiles need straight, corner, head and tail pieces;
-  flips (x/y attributes) give the four directions of each, so about 6 base tiles a body
-  style.
-- **Enemies, critters, keys and the bulge's highlight** are sprites (RogueGB's
-  `sprite_slot.c` draws 16×16 characters; 8×8 ones are one 8×16 sprite each).
+- **Turns and corners:** the segment blocks need straight, corner, head and tail pieces;
+  flips (x/y attributes, with the block's quarters swapped) give the four directions of
+  each, so about 6 metatiles (24 tiles) a body style.
+- **Enemies, critters, keys and the bulge's highlight** are sprites on the same 16×16
+  grid (RogueGB's `sprite_slot.c` draws 16×16 characters).
 - **Coil detection:** when the head moves next to its own body, flood-fill from each
   nearby enemy; an enemy whose region doesn't reach the room's open space is coiled.
-  A 320-cell fill is cheap once per move, and can be spread over frames if needed.
+  An 80-block room makes the fill trivial once per move.
   "Tight loop" vs "loose circle" is a limit on the enclosed area.
 - **Switches** are cells under the body: the room's switch list is checked against the
   cells that changed this move (head entering, tail leaving), not the whole body.
@@ -60,7 +70,8 @@ engine. Proposals, not decisions: change freely.
 
 The smallest slice that tests the dungeon rules:
 
-1. Auto-movement on the 8×8 grid at a slow speed, with corner tiles.
+1. Auto-movement on the 16×16 grid at a slow speed, with corner blocks and the
+   sliding head and tail.
 2. Hitting a wall or yourself bounces back and costs a tail segment; at just the head,
    lose a heart and restart the room at the length you entered with.
 3. HUD: hearts, current length, the length the room needs.

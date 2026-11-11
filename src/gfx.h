@@ -38,7 +38,7 @@ extern uint8_t scroll_y;
 //
 // Background map strips (a row or a column of tiles):
 #define STRIP_MAX_LEN 23  // also STRIP_SIZE in vram_queue.s
-#define STRIP_MAX 4
+#define STRIP_MAX 8  // a snake move: up to 4 16x16 blocks, 2 rows each
 // x, y: background map tile coordinates (wrapped to 0-31). vertical: column if 1.
 // Returns the buffer to fill with `len` tiles (flushing first if the queue is full).
 uint8_t *gfx_strip(uint8_t x, uint8_t y, uint8_t vertical, uint8_t len);

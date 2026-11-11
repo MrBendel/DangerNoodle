@@ -67,7 +67,7 @@ test('eating grows the noodle and scores', () => {
 test('hitting a wall ends the game; START goes back to the title', () => {
   const emu = startGame();
   emu.until((e) => e.v('dead_timer'), 300, 'the crash');
-  assert.equal(emu.v('head_x'), 18, 'crashed at the right wall');
+  assert.equal(emu.v('head_x'), 8, 'crashed at the right wall (block 9 is the wall)');
   settle(emu, GAME_OVER, 'game over screen');
   emu.tap('START');
   assert.equal(emu.v('next_state'), GAME_OVER, 'input is ignored for a moment');

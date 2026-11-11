@@ -21,6 +21,8 @@
 - Game Boy Color only, double speed: a frame is 140,448 CPU cycles (131,328 after vblank,
   `FRAME_LIMIT` in tests/helpers.mjs). Palettes go through `pal_base_*` and `gfx_set_fade`.
 - Frame budget: per-frame code avoids 32-bit math and division; VRAM writes go through the
-  vblank queue (`gfx_strip`, `gfx_strip_attr`, `gfx_vram_copy`; at most 4 strips and 6
+  vblank queue (`gfx_strip`, `gfx_strip_attr`, `gfx_vram_copy`; at most 8 strips and 6
   copies a frame before it flushes the slow way).
+- The board is a grid of 16x16 blocks (Zelda-style rooms; enemies are 16x16): a room
+  screen is 10x8 blocks. Background art is 16x16 metatiles (`tools/tile-art.mjs`).
 - Never commit build output or the extracted `tools/.gbdk-*` folders.
