@@ -50,7 +50,7 @@ extracted on first build.
 | `src/game.h` | The game's watchable state (score, the noodle, the food) |
 | `src/game_over.c` | Score and best; START returns to the title |
 | `tools/build.mjs` | The build: assets, compile, link, bank 0 and work RAM checks |
-| `tools/assets.mjs` | PNG → tiles and 16×16 sprite animations; ASCII-art 16×16 metatiles from `tools/tile-art.mjs` |
+| `tools/assets.mjs` | PNG → tiles and 16×16 sprite animations; ASCII-art tiles and 16×16 metatiles from `tools/tile-art.mjs` |
 | `tools/fonts.mjs` | The font sheet → glyph tables for `text.c` |
 | `tools/serve.mjs` | The local playtest server (live rebuild + reload, saves replays to `replays/`) |
 | `tools/bundle.mjs` | The playtest page, emulator and ROM in one HTML file |
@@ -92,5 +92,6 @@ nothing on the Color.
 
 - `artwork/fonts/font-sheet.png`: the three proportional fonts (from RogueGB).
 - `artwork/Fonts for GB Studio/`: the 8×8 tile font and the dialog frame.
-- `tools/tile-art.mjs`: placeholder board and noodle blocks as 16×16 ASCII art (the
-  board is a grid of 16×16 blocks, Zelda-style; enemies are 16×16 too).
+- `tools/tile-art.mjs`: placeholder art as ASCII: the noodle and food (8×8: the noodle
+  moves on an 8×8 grid), 8 px walls, and 16×16 floor blocks (the Zelda-style grid that
+  enemies use too).

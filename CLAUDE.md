@@ -23,6 +23,7 @@
 - Frame budget: per-frame code avoids 32-bit math and division; VRAM writes go through the
   vblank queue (`gfx_strip`, `gfx_strip_attr`, `gfx_vram_copy`; at most 8 strips and 6
   copies a frame before it flushes the slow way).
-- The board is a grid of 16x16 blocks (Zelda-style rooms; enemies are 16x16): a room
-  screen is 10x8 blocks. Background art is 16x16 metatiles (`tools/tile-art.mjs`).
+- Two grids (`src/game.h`): the noodle moves on 8x8 cells; the floor, enemies, switches
+  and blocks are 16x16 (Zelda-style). A room is one screen with 8 px walls: 18x14 cells,
+  9x7 blocks inside. Placeholder art is ASCII in `tools/tile-art.mjs`.
 - Never commit build output or the extracted `tools/.gbdk-*` folders.

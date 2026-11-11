@@ -3,20 +3,21 @@
 How the design ([README.md](README.md)) maps onto the Game Boy Color and the RogueGB
 engine. Proposals, not decisions: change freely.
 
-## Dungeons: a 16×16 grid, the body in background tiles
+## Dungeons: two grids, the body in background tiles
 
-- **Grid: 16×16 blocks, like Zelda's dungeons** (decided 2026-11-11). A segment is one
-  block, the same size as the 16×16 enemies, so everything shares one grid. The
-  160×128 playfield is 10×8 blocks; a one-screen room with walls all round has 8×6 open
-  blocks, as in Link's Awakening. Flip-screen rooms fit "restart the room".
-- **Room size vs length puzzles:** 8×6 open blocks (48) is tight for long bodies, four
-  corners and head-and-tail buttons. Options when the first puzzles are built: thinner
-  (8 px) walls, rooms bigger than a screen that scroll (RogueGB's camera already does
-  2×2-screen rooms), or keeping lengths short and puzzles dense. Prototype one first.
-- **Smooth movement:** stepping 16 px at once reads as choppy at slow speeds. The usual
-  trick: the head and the tail tip are 16×16 sprites (two hardware sprites each) that
-  slide between blocks every frame, while the body behind them stays background blocks
-  that change once per step. The placeholder steps a block at a time for now.
+- **Two grids** (decided 2026-11-11). The noodle moves on **8×8 cells**; the floor,
+  enemies, switches and pushable blocks sit on **16×16 blocks**, Zelda-style. A room
+  is one screen: the 160×128 playfield with **8 px walls**, so the noodle has 18×14 =
+  252 open cells and there are 9×7 blocks inside the walls (16 px walls would leave
+  only 8×6 blocks, 48 cells for a 16 px snake). A block covers 2×2 cells; block
+  (bx, by) starts at cell (1 + 2bx, 1 + 2by). Flip-screen rooms fit "restart the room".
+- **What the two grids mean for the rules (to decide while prototyping):** a 16×16
+  enemy fills 2×2 cells, so a tight coil around one is a ring of 12 cells. A 16×16
+  switch could press when any of its 4 cells is under the body, or need all 4
+  (a "weighted" switch for free). Pushable blocks move a block (2 cells) at a time.
+- **Smooth movement (optional):** 8 px steps read fine at most speeds. For more polish,
+  the head and tail tip can be sprites that slide between cells every frame while the
+  body behind them stays background tiles that change once per step.
 - **The HUD is at the bottom, on the window layer** (as in RogueGB, decided there
   2026-10-12). The hardware draws the window from line WY down to the bottom of the
   screen for free; a top HUD would need a scanline interrupt every frame to switch the
@@ -24,22 +25,22 @@ engine. Proposals, not decisions: change freely.
   sprites from drawing over it. It also suits the overworld: the background scrolls
   under a fixed window. `gfx.h` defines `HUD_ROWS`, `PLAYFIELD_TH` and `HUD_WY` (128).
 - **The body is drawn in the background, not sprites.** The hardware shows 40 sprites,
-  10 per scanline: a 16×16 segment is 2 of them, so a sprite body would flicker past
-  ~5 segments in a row. Background blocks have no limit. A move changes at most 4
-  blocks, each two 2-tile strips in the vblank queue (`STRIP_MAX` is 8 for this); the
-  placeholder `src/play.c` does exactly this with 16×16 metatiles.
+  10 per scanline: a sprite body would flicker past ~10 segments in a row. Background
+  tiles have no limit, and a move changes at most 4 cells (4 one-tile strips in the
+  vblank queue), as the placeholder `src/play.c` does. When the tail leaves a cell, the
+  floor comes back as the right quarter of its 16×16 block.
 - **Coatings are tile attributes.** On the Color each background tile picks one of 8
   palettes, so a fire- or ice-coated segment is the same tile on another palette, and the
   bulge travelling down the body is a palette or tile change per move. Half-and-half
   bodies come at no cost.
-- **Turns and corners:** the segment blocks need straight, corner, head and tail pieces;
-  flips (x/y attributes, with the block's quarters swapped) give the four directions of
-  each, so about 6 metatiles (24 tiles) a body style.
-- **Enemies, critters, keys and the bulge's highlight** are sprites on the same 16×16
-  grid (RogueGB's `sprite_slot.c` draws 16×16 characters).
+- **Turns and corners:** the segment tiles need straight, corner, head and tail pieces;
+  flips (x/y attributes) give the four directions of each, so about 6 tiles a body
+  style.
+- **Enemies** are 16×16 sprites on the block grid (RogueGB's `sprite_slot.c` draws
+  16×16 characters); critters, keys and the bulge's highlight can be 8×8.
 - **Coil detection:** when the head moves next to its own body, flood-fill from each
   nearby enemy; an enemy whose region doesn't reach the room's open space is coiled.
-  An 80-block room makes the fill trivial once per move.
+  A 252-cell room is cheap to fill once per move, and it can be spread over frames.
   "Tight loop" vs "loose circle" is a limit on the enclosed area.
 - **Switches** are cells under the body: the room's switch list is checked against the
   cells that changed this move (head entering, tail leaving), not the whole body.
@@ -70,8 +71,8 @@ engine. Proposals, not decisions: change freely.
 
 The smallest slice that tests the dungeon rules:
 
-1. Auto-movement on the 16×16 grid at a slow speed, with corner blocks and the
-   sliding head and tail.
+1. Auto-movement on the 8×8 grid at a slow speed, with corner pieces, in a room of
+   16×16 floor blocks inside 8 px walls.
 2. Hitting a wall or yourself bounces back and costs a tail segment; at just the head,
    lose a heart and restart the room at the length you entered with.
 3. HUD: hearts, current length, the length the room needs.
