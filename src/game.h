@@ -5,11 +5,12 @@
 
 #include <stdint.h>
 
-// The board, in background tiles: walls all round, the HUD on row 0.
+// The board, in background tiles: the 20x16 playfield above the HUD, walls all
+// round. The HUD is the bottom two rows, on the window layer (gfx.h HUD_WY).
 #define BOARD_X0 1   // the first open column ...
 #define BOARD_X1 18  // ... and the last
-#define BOARD_Y0 2   // the first open row (row 0: HUD, row 1: the top wall) ...
-#define BOARD_Y1 16  // ... and the last (row 17: the bottom wall)
+#define BOARD_Y0 1   // the first open row (row 0: the top wall) ...
+#define BOARD_Y1 14  // ... and the last (row 15: the bottom wall)
 
 #define DIR_RIGHT 0
 #define DIR_LEFT 1

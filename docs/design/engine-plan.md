@@ -5,9 +5,15 @@ engine. Proposals, not decisions: change freely.
 
 ## Dungeons: the body is background tiles
 
-- **Grid:** 8×8-pixel cells, one screen per room: 20×16 cells under a 2-row HUD (or
-  20×17 with a 1-row HUD). Flip-screen rooms fit "restart the room" and need no
+- **Grid:** 8×8-pixel cells, one screen per room: a 20×16-cell playfield (160×128 px)
+  with a 2-row HUD below it. Flip-screen rooms fit "restart the room" and need no
   scrolling. A 16×16 grid would give only 10×8 cells, too small for length puzzles.
+- **The HUD is at the bottom, on the window layer** (as in RogueGB, decided there
+  2026-10-12). The hardware draws the window from line WY down to the bottom of the
+  screen for free; a top HUD would need a scanline interrupt every frame to switch the
+  window off again. The only per-frame cost is `gfx_sprite_split(HUD_WY)`, which keeps
+  sprites from drawing over it. It also suits the overworld: the background scrolls
+  under a fixed window. `gfx.h` defines `HUD_ROWS`, `PLAYFIELD_TH` and `HUD_WY` (128).
 - **The body is drawn in the background, not sprites.** The hardware shows 40 sprites,
   10 per scanline: a sprite body would flicker or vanish past ~10 segments. Background
   tiles have no limit, and a move changes at most 3-4 tiles (the vblank queue already

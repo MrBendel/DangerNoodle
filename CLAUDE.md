@@ -13,6 +13,8 @@
 - Verify every change with `node tools/test.mjs`. Look at screenshots in
   `build/test-output/` with Read when visuals change; `node tools/test.mjs --update`
   accepts new golden screens.
+- The HUD goes at the bottom, on the window layer (`HUD_WY` in `src/gfx.h`): free in hardware,
+  where a top HUD needs a scanline interrupt every frame. Don't move it to the top.
 - Keep watchable game state in global, non-static variables.
 - Bank 0 is for hot code; cold code/data goes in `#pragma bank 255` files or `bank: true`
   assets (README, "Engine rules"). The build fails if bank 0 overflows or passes 90%.

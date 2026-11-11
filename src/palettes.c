@@ -42,6 +42,7 @@ void palettes_play(void) BANKED {
     set_bg(PLAY_PAL_NOODLE, noodle);
     set_bg(PLAY_PAL_FOOD, food);
     set_bg(PLAY_PAL_TEXT, hud);
+    set_bg(BG_PAL_UI, hud);  // the window: the HUD
 }
 
 // Menus: the title's colors for the compact and display fonts.

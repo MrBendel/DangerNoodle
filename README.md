@@ -76,6 +76,11 @@ use the bank-0 helpers `banked_memcpy`, `banked_sprite_data`, `banked_bkg_data`.
 Text drawing reads strings from RAM: banked scenes copy their constants first
 (`scene_text.h`). The build fails if bank 0 overflows or passes 90%.
 
+**HUD at the bottom.** The HUD is the window layer at line 128 (`HUD_WY` in `gfx.h`),
+under a 160×128 playfield. The hardware draws the window to the bottom of the screen
+for free; a top HUD would need a scanline interrupt every frame. `gfx_sprite_split`
+keeps sprites off it.
+
 **Palettes.** Scenes set `pal_base_bg`/`pal_base_obj` (via `palettes.c`) and call
 `gfx_set_fade`; the vblank handler uploads them. The DMG palette registers do
 nothing on the Color.

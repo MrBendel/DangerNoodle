@@ -16,6 +16,15 @@
 #define SCREEN_TW 20  // screen size in tiles
 #define SCREEN_TH 18
 
+// The HUD: the bottom two tile rows, on the window layer. The hardware draws the
+// window from line WY to the bottom of the screen with no per-frame work, so a
+// bottom HUD is free; a top one would need a scanline interrupt to switch the
+// window off again every frame (decided in RogueGB, ROADMAP 2026-10-12). Sprites
+// are cut off at HUD_WY by gfx_sprite_split so they don't draw over it.
+#define HUD_ROWS 2
+#define PLAYFIELD_TH (SCREEN_TH - HUD_ROWS)  // 16 rows: 160x128 px
+#define HUD_WY (PLAYFIELD_TH * 8)            // 128
+
 // Background scroll, applied by the vblank interrupt (together with the sprite
 // update), so the background and sprites always move in the same frame.
 extern uint8_t scroll_x;
@@ -113,7 +122,7 @@ void palettes_title(void) BANKED;
 #define PLAY_PAL_WALL 1
 #define PLAY_PAL_NOODLE 2
 #define PLAY_PAL_FOOD 3
-#define PLAY_PAL_TEXT 4
+#define PLAY_PAL_TEXT 4  // the pause banner (the HUD itself uses BG_PAL_UI)
 void palettes_play(void) BANKED;
 // Menus (game over): the title's colors.
 void palettes_menu(void) BANKED;

@@ -30,7 +30,7 @@
 #define A_FLIPY 0x40
 
 #define START_X 6
-#define START_Y 9
+#define START_Y 8
 #define START_LEN 3
 #define START_DELAY 8  // frames a move at first
 #define MIN_DELAY 3
@@ -81,8 +81,8 @@ static uint8_t head_attr(void) {
 }
 
 static void hud_score(void) {
-    bkg_number(7, 0, score, 4, 1);
-    bkg_number(16, 0, best_score, 4, 1);
+    win_number(6, 0, score, 4, 1);
+    win_number(16, 0, best_score, 4, 1);
 }
 
 // Food on a free cell: a few random tries, then the first free cell.
@@ -108,16 +108,21 @@ found:
 void play_enter(void) BANKED {
     palettes_play();
     banked_bkg_data(SCENE_TILES, BOARD_TILE_COUNT, board_tiles, BANK(board));
-    // Attributes: the HUD row, then walls all round, then grass inside.
+    // Attributes: walls all round the playfield, then grass inside.
     VBK_REG = 1;
-    fill_bkg_rect(0, 0, SCREEN_TW, 1, PLAY_PAL_TEXT);
-    fill_bkg_rect(0, 1, SCREEN_TW, SCREEN_TH - 1, PLAY_PAL_WALL);
+    fill_bkg_rect(0, 0, SCREEN_TW, PLAYFIELD_TH, PLAY_PAL_WALL);
     fill_bkg_rect(BOARD_X0, BOARD_Y0, BOARD_X1 - BOARD_X0 + 1, BOARD_Y1 - BOARD_Y0 + 1, PLAY_PAL_BOARD);
     VBK_REG = 0;
-    fill_bkg_rect(0, 1, SCREEN_TW, SCREEN_TH - 1, T_WALL);
+    fill_bkg_rect(0, 0, SCREEN_TW, PLAYFIELD_TH, T_WALL);
     fill_bkg_rect(BOARD_X0, BOARD_Y0, BOARD_X1 - BOARD_X0 + 1, BOARD_Y1 - BOARD_Y0 + 1, T_GRASS);
-    bkg_text(1, 0, "SCORE");
-    bkg_text(11, 0, "BEST");
+    // The HUD on the window, at the bottom (gfx.h HUD_WY). Its attributes are
+    // BG_PAL_UI everywhere (gfx_init).
+    fill_win_rect(0, 0, SCREEN_TW, HUD_ROWS, 0);
+    win_text(0, 0, "SCORE");
+    win_text(11, 0, "BEST");
+    move_win(7, HUD_WY);
+    SHOW_WIN;
+    gfx_sprite_split(HUD_WY);  // sprites (enemies, later) stop above the HUD
 
     memset(occupied, 0, sizeof(occupied));
     initrand(game_seed);
@@ -147,7 +152,7 @@ void play_enter(void) BANKED {
 
 // "PAUSED" across the middle of the board, or what was under it back.
 #define PAUSE_X 7
-#define PAUSE_Y 9
+#define PAUSE_Y 7
 #define PAUSE_W 6
 static void pause_banner(void) {
     VBK_REG = 1;
