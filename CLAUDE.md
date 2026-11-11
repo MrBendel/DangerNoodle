@@ -3,7 +3,7 @@
 - A Game Boy Color game on the engine from RogueGB (https://github.com/MrBendel/RogueGB):
   look there for systems not carried over yet (sprite slots, camera/scrolling rooms,
   actors, save files in SRAM, far RAM, dialogue, music hooks) before writing new ones.
-- Design docs go in `docs/design/` as the user provides them. The current play scene
+- The design: `docs/design/README.md` (a snapshot of the live doc it links to) and `docs/design/engine-plan.md`. The current play scene
   (`src/play.c`) is a placeholder that proves the pipeline; replace it freely.
 - Engine: GBDK-2020 4.5.0. Reference docs are in `docs/gbdk/` (start with `docs/gbdk/README.md`).
 - The user builds and tests with `npm run play` / `npm test` (Node 22+).

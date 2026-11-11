@@ -4,7 +4,7 @@ A Game Boy Color game, built in C with [GBDK-2020](https://gbdk.org/) 4.5.0 on t
 engine from [RogueGB](https://github.com/MrBendel/RogueGB): its build, VRAM
 queue, text, fades, sound engine, headless emulator harness, tests and playtest page.
 
-**Status: starter.** The game design is still to come. For now the ROM is a working
+**Status: starter.** The design is in [docs/design/](docs/design/README.md). For now the ROM is a working
 shell (title → play → game over) with a placeholder noodle game, so the whole
 pipeline (build, emulator, tests, playtest page) is proven before the real design
 lands.
