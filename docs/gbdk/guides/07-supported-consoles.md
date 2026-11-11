@@ -1,0 +1,723 @@
+# Supported Consoles & Cross Compiling
+
+> Source: https://gbdk.org/docs/api/docs_supported_consoles.html (GBDK-2020 v4.5.0)
+
+## Consoles Supported by GBDK
+
+As of version `4.2.0` GBDK includes support for other consoles in addition to the Game Boy.
+
+-   Game Boy and related clones
+    -   Nintendo Game Boy / Game Boy Color (GB/GBC)
+    -   Analogue Pocket (AP)
+    -   Mega Duck / Cougar Boy (DUCK)
+-   Sega Consoles
+    -   Sega Master System (SMS)
+    -   Sega Game Gear (GG)
+-   NES/Famicom (NES)
+-   MSX DOS (MSXDOS) (partial support)
+
+While the GBDK API has many convenience functions that work the same or similar across different consoles, it's important to keep their different capabilities in mind when writing code intended to run on more than one. Some (but not all) of the differences are screen sizes, color capabilities, memory layouts, processor type (z80 vs gbz80/sm83) and speed.
+
+## Cross Compiling for Different Consoles
+
+### lcc
+
+When compiling and building through lcc use the `-m<port>:<plat>` flag to select the desired console via its port and platform combination. See below for available settings.
+
+### sdcc
+
+When building directly with the sdcc toolchain, the following must be specified manually (when using lcc it will populate these automatically based on `-m<port>:<plat>`).
+
+When compiling with sdcc:
+
+-   `-m<port>`, `-D__PORT_<port>` and `-D__TARGET_<plat>`
+
+When assembling select the appropriate include path: `-I<gbdk-path>lib/<plat>`.
+
+The assemblers used are:
+
+-   sdasgb (for GB/AP)
+-   sdasz80 (for SMS/GG)
+-   sdas6500 (for NES)
+
+When linking:
+
+-   Select the appropriate include paths: `-k <gbdk-path>lib/<port>`, `-k <gbdk-path>lib/<plat>`
+-   Include the appropriate library files `-l <port>.lib`, `-l <plat>.lib`
+-   The crt will be under `<gbdk-path>lib/<plat>/crt0.o`
+
+The linkers used are:
+
+-   sdldgb (for GB/AP)
+-   sdldz80 (for SMS/GG or MSXDOS)
+-   sdld6808 (for NES)
+
+MSXDOS requires an additional build step with makecom after makebin to create the final binary:
+
+-   `makecom <image.bin> [<image.noi>] <output.com>`
+
+### Console Port and Platform Settings
+
+Note: Starting with GBDK-2020 4.1.0 and SDCC 4.2, the Game Boy and related clones use `sm83` for the port instead of `gbz80`
+
+-   Nintendo Game Boy / Game Boy Color  
+    -   lcc : `-msm83:gb`
+    -   port:`sm83`, plat:`gb`
+-   Analogue Pocket
+    -   lcc : `-msm83:ap`
+    -   port:`sm83`, plat:`ap`
+-   Mega Duck / Cougar Boy
+    -   lcc : `-msm83:duck`
+    -   port:`sm83`, plat:`duck`
+-   Sega Master System
+    -   lcc : `-mz80:sms`
+    -   port:`z80`, plat:`sms`
+-   Sega Game Gear
+    -   lcc : `-mz80:gg`
+    -   port:`z80`, plat:`gg`
+-   NES
+    -   lcc : `-mmos6502:nes`
+    -   port:`mos6502`, plat:`nes`
+-   MSX DOS
+    -   lcc : `-mz80:msxdos`
+    -   port:`z80`, plat:`msxdos`
+
+## Cross-Platform Constants
+
+There are several constant #defines that can be used to help select console specific code during compile time (with `#ifdef`, `#ifndef`) .
+
+### Console Identifiers
+
+-   When `<gb/gb.h>` is included (either directly or through `<gbdk/platform.h>`)
+    -   When building for Game Boy:
+        -   `NINTENDO` will be #defined
+        -   `GAMEBOY` will be #defined
+    -   When building for Analogue Pocket
+        -   `NINTENDO` will be #defined
+        -   `ANALOGUEPOCKET` will be #defined
+    -   When building for Mega Duck / Cougar Boy
+        -   `NINTENDO` will be #defined
+        -   `MEGADUCK` will be #defined
+-   When `<sms/sms.h>` is included (either directly or through `<gbdk/platform.h>`)
+    -   When building for Master System
+        -   `SEGA` will be #defined
+        -   `MASTERSYSTEM` will be #defined
+    -   When building for Game Gear
+        -   `SEGA` will be #defined
+        -   `GAMEGEAR` will be #defined
+-   When `<nes/nes.h>` is included (either directly or through `<gbdk/platform.h>`)
+    -   `NINTENDO_NES` will be #defined
+-   When `<msx/msx.h>` is included (either directly or through `<gbdk/platform.h>`)
+    -   `MSXDOS` will be #defined
+
+### Console Hardware Properties
+
+Constants that describe properties of the console hardware are listed below. Their values will change to reflect the current console target that is being built.
+
+-   DEVICE\_SCREEN\_X\_OFFSET, DEVICE\_SCREEN\_Y\_OFFSET
+-   DEVICE\_SCREEN\_WIDTH, DEVICE\_SCREEN\_HEIGHT
+-   DEVICE\_SCREEN\_BUFFER\_WIDTH, DEVICE\_SCREEN\_BUFFER\_HEIGHT
+-   DEVICE\_SCREEN\_MAP\_ENTRY\_SIZE
+-   DEVICE\_SPRITE\_PX\_OFFSET\_X, DEVICE\_SPRITE\_PX\_OFFSET\_Y
+-   DEVICE\_SCREEN\_PX\_WIDTH, DEVICE\_SCREEN\_PX\_HEIGHT
+-   MAX\_HARDWARE\_SPRITES
+-   HARDWARE\_SPRITE\_CAN\_FLIP\_X, HARDWARE\_SPRITE\_CAN\_FLIP\_Y
+
+## Using <gbdk/...> headers
+
+Some include files under `<gbdk/..>` are cross platform and others allow the build process to auto-select the correct include file for the current target port and platform (console).
+
+For example, the following can be used
+
+#include <gbdk/platform.h>
+#include <gbdk/metasprites.h>
+
+Instead of
+
+#include <gb/gb.h>
+#include <gb/metasprites.h>
+
+and
+
+#include <sms/sms.h>
+#include <sms/metasprites.h>
+
+## Cross Platform Example Projects
+
+GBDK includes an number of cross platform example projects. These projects show how to write code that can be compiled and run on multiple different consoles (for example Game Boy and Game Gear) with, in some cases, minimal differences.
+
+They also show how to build for multiple target consoles with a single build command and `Makefile`. The `Makefile.targets` allows selecting different `port` and `plat` settings when calling the build stages.
+
+### Cross Platform Asset Example
+
+The cross-platform `Logo` example project shows how assets can be managed for multiple different console targets together.
+
+In the example utility\_png2asset is used to generate assets in the native format for each console at compile-time from separate source PNG images. The Makefile is set to use the source PNG folder which matches the current console being compiled, and the source code uses set\_bkg\_native\_data() to load the assets tiles in native format to the tile memory used for background tiles on that platform.
+
+## Hardware Summaries
+
+The specs below reflect the typical configuration of hardware when used with GBDK and is not meant as a complete list of their capabilities.
+
+GB/AP/DUCK
+
+-   Sprites:
+    -   256 tiles (upper 128 are shared with background) (amount is doubled in CGB mode)
+    -   tile flipping/mirroring: yes
+    -   40 total, max 10 per line
+    -   2 x 4 color palette (color 0 transparent). 8 x 4 color palettes in CGB mode
+-   Background: 256 tiles (typical setup: upper 128 are shared with sprites) (amount is doubled in CGB mode)
+    -   tile grid size: 8x8
+    -   tile attribute grid size: 8x8 (CGB mode only)
+    -   tile flipping/mirroring: no (yes in CGB mode)
+    -   1 x 4 color palette. 8 x 4 color palettes in CGB mode
+-   Window "layer": available
+-   Screen: 160 x 144
+-   Hardware Map: 256 x 256
+
+SMS/GG
+
+-   Sprites:
+    -   256 tiles (a bit less in the default setup)
+    -   tile flipping/mirroring: no
+    -   64 total, max 8 per line
+    -   1 x 16 color palette (color 0 transparent)
+-   Background: 512 tiles (upper 256 are shared with sprites)
+    -   tile grid size: 8x8
+    -   tile attribute grid size: 8x8
+    -   tile flipping/mirroring: yes
+    -   2 x 16 color palettes
+-   Window "layer": not available
+-   SMS
+    -   Screen: 256 x 192
+    -   Hardware Map: 256 x 224
+-   GG
+    -   Screen: 160 x 144
+    -   Hardware Map: 256 x 224
+
+NES/Famicom
+
+-   Sprites:
+    -   8x8 or 8x16
+    -   256 tiles
+    -   tile flipping/mirroring: yes
+    -   64 total, max 8 per line
+    -   4 x 4 color palette (color 0 transparent)
+-   Background: 256 tiles
+    -   tile grid size: 8x8
+    -   tile attribute grid size: 16x16 (bit packed into 32x32)
+    -   tile flipping/mirroring: no
+    -   4 x 4 color palette (color 0 same for all sub-palettes)
+-   Window "layer": not available
+-   Screen: 256 x 240
+-   Hardware Map: Depends on mirroring mode
+    -   256 x 240 (single-screen mirroring)
+    -   512 x 240 (vertical mirroring / horizontal scrolling)
+    -   256 x 480 (horizontal mirroring / vertical scrolling)
+    -   512 x 480 (4-screen layout. Requires additional RAM on cartridge)
+
+### Safe VRAM / Display Controller Access
+
+GB/AP
+
+-   VRAM / Display Controller (PPU)
+    -   VRAM and some other display data / registers should only be written to when the STATF\_B\_BUSY bit of STAT\_REG is off. Most GBDK API calls manage this automatically.
+
+SMS/GG
+
+-   Display Controller (VDP)
+    -   Writing to the VDP should not be interrupted while an operation is already in progress (since that will interfere with the internal data pointer causing data to be written to the wrong location).
+    -   Recommended approach: Avoid writing to the VDP (tiles, map, scrolling, colors, etc) during an interrupt routine (ISR).
+    -   Alternative (requires careful implementation): Make sure writes to the VDP during an ISR are only performed when the \_shadow\_OAM\_OFF flag indicates it is safe to do so.
+
+NES/Famicom
+
+-   See NES technical details
+
+## Using Game Boy Color (GBC/CGB) Features
+
+### Differences Versus the Regular Game Boy (DMG/GBP/SGB)
+
+These are some of the main hardware differences between the Regular Game Boy and the Game Boy Color.
+
+-   CPU: Optional 2x Speed mode
+-   Serial Link: Additional Speeds 2KB/s, 32KB/s, 64KB/s
+-   IR Port
+-   Sprites:
+    -   2 banks x 256 tile patterns (2x as many) (typically upper 128 of each bank shared with background)
+    -   8 x 4 color palettes in CGB mode (BGR-555 per color, 32768 color choices)
+-   Background:
+    -   2 banks x 256 tile patterns (2x as many) (typically upper 128 of each bank shared with sprites)
+    -   Second map bank for tile attributes (color, flipping/mirroring, priority, bank)
+    -   8 x 4 color palettes in CGB mode (BGR-555 per color, 32,768 color choices))
+    -   BG and Window master priority
+-   WRAM: 8 x 4K WRAM banks in the 0xD000 - 0xDFFF region
+-   LCD VRAM DMA
+
+### Game Boy Color features in GBDK
+
+These are some of the main GBDK API features for the CGB. Many of the items listed below link to additional information.
+
+-   ROM header settings:
+    -   See the FAQ entry How do I set SGB, Color only and Color compatibility in the ROM header?
+-   Tile and Pattern data:
+    -   Select VRAM Banks: VBK\_REG (used with `set_bkg/win/sprite_*()`)
+    -   set\_bkg\_attributes(), set\_bkg\_submap\_attributes()
+-   Color:
+    -   set\_bkg\_palette(), set\_bkg\_palette\_entry()
+    -   set\_sprite\_palette(), set\_sprite\_palette\_entry()
+    -   set\_default\_palette()
+    -   RGB(), RGB8(), RGBHTML()
+-   Detect and change CPU speed: if (\_cpu == CGB\_TYPE), cpu\_fast()
+-   More details in cgb.h (`#include <gb/cgb.h>`)
+
+### CGB Examples
+
+Several examples in GBDK show how to use CGB features, including the following:
+
+-   `gb/colorbar`, `gb/dscan`, `cross-platform/large_map`, `cross-platform/logo`, `cross-platform/metasprites`
+
+## Porting Between Supported Consoles
+
+### From Game Boy to Analogue Pocket
+
+The Analogue Pocket operating in `.pocket` mode is (for practical purposes) functionally identical to the Game Boy / Color though it has a couple changes listed below. These are handled automatically in GBDK as long as the practices outlined below are followed.
+
+#### Official differences:
+
+-   Altered register flag and address definitions
+    -   STAT & LCDC: Order of register bits is reversed
+        -   Example: LCD on/off is LCDC.0 instead of .7
+        -   Example: LYC Interrupt enable is STAT.1 instead of .6
+    -   LCDC address is `0xFF4E` instead of `0xFF40`
+-   Different logo data in the header at address `0x0104`:
+    -   `0x01, 0x10, 0xCE, 0xEF, 0x00, 0x00, 0x44, 0xAA, 0x00, 0x74, 0x00, 0x18, 0x11, 0x95, 0x00, 0x34, 0x00, 0x1A, 0x00, 0xD5, 0x00, 0x22, 0x00, 0x69, 0x6F, 0xF6, 0xF7, 0x73, 0x09, 0x90, 0xE1, 0x10, 0x44, 0x40, 0x9A, 0x90, 0xD5, 0xD0, 0x44, 0x30, 0xA9, 0x21, 0x5D, 0x48, 0x22, 0xE0, 0xF8, 0x60`
+
+#### Observed differences:
+
+-   MBC1 and MBC5 are supported, MBC3 won't save and RTC doesn't progress when game is not running, the HuC3 isn't supported at all (via JoseJX and sg).
+-   The Serial Link port does not work
+-   The IR port in CGB mode does not work as reliably as the Game Boy Color
+
+In order for software to be easily ported to the Analogue Pocket, or to run on both, use the following practices.
+
+#### Registers and Flags
+
+Use API defined registers and register flags instead of hardwired ones.
+
+-   LCDC register: LCDC\_REG or rLCDC
+-   STAT register: STAT\_REG or rSTAT
+-   LCDC flags: -> LCDCF\_... (example: LCDCF\_ON)
+-   STAT flags: -> STATF\_... (example: STATF\_LYC)
+
+#### Boot logo
+
+As long as the target console is set during build time then the correct boot logo will be automatically selected.
+
+### From Game Boy to SMS/GG
+
+#### RAM Banks
+
+-   The SMS/GG ROM file size must be at least 64K to enable mapper support for RAM banks in emulators.
+    -   If the generated ROM is too small then `-yo 4` for makebin (or `-Wm-yo4` for LCC) can be used to set the size to 64K.
+
+#### Tile Data and Tile Map loading
+
+##### Tile and Map Data in 2bpp Game Boy Format
+
+-   set\_bkg\_data() and set\_sprite\_data() will load 2bpp tile data in "Game Boy" format on both GB and SMS/GG.
+-   On the SMS/GG set\_2bpp\_palette() sets 4 colors that will be used when loading 2bpp assets with set\_bkg\_data(). This allows GB assets to be easily colorized without changing the asset format. There is some performance penalty for using the conversion.
+-   set\_bkg\_tiles() loads 1-byte-per-tile tilemaps both for the GB and SMS/GG.
+
+##### Tile and Map Data in Native Format
+
+Use the following api calls when assets are avaialble in the native format for each platform.
+
+set\_native\_tile\_data()
+
+-   GB/AP: loads 2bpp tiles data
+-   SMS/GG: loads 4bpp tile data
+
+set\_tile\_map()
+
+-   GB/AP: loads 1-byte-per-tile tilemaps
+-   SMS/GG: loads 2-byte-per-tile tilemaps
+
+There are also bit-depth specific API calls:
+
+-   1bpp: set\_1bpp\_colors, set\_bkg\_1bpp\_data, set\_sprite\_1bpp\_data
+-   2bpp: set\_2bpp\_palette, set\_bkg\_2bpp\_data, set\_sprite\_2bpp\_data, set\_tile\_2bpp\_data (sms/gg only)
+-   2bpp: set\_bkg\_4bpp\_data (sms/gg only), set\_sprite\_4bpp\_data (sms/gg only)
+
+#### Colors and Palettes
+
+The SMS/GG have 2 x 16 color palettes:
+
+-   The first (0) is just for the background
+-   The second (1) is shared between sprites and the background (and for sprites a single color 0 of that palette is transparent)
+
+On the Game Gear
+
+-   Each Palette is 32 bytes in size: 16 colors x 2 bytes per palette color entry.
+-   Each color (16 per palette) is packed as BGR-444 format (x:4:4:4, MSBits \[15..12\] are unused).
+-   Each component (R, G, B) may have values from 0 - 15 (4 bits), 15 is brightest.
+
+On the SMS
+
+-   On SMS each Palette is 16 bytes in size: 16 colors x 1 byte per palette color entry.
+-   Each color (16 per palette) is packed as BGR-222 format (x:2:2:2, MSBits \[7..6\] are unused).
+-   Each component (R, G, B) may have values from 0 - 3 (2 bits), 3 is brightest.
+
+For setting palette data:
+
+-   set\_palette\_entry(): Will set a single color in a palette
+-   set\_palette(): Can set all the colors for one or both palettes
+-   set\_bkg\_palette(): Is just an alias for set\_palette(). The full 16 colors can be set using this call.
+-   set\_sprite\_palette(): Is also an alias for set\_palette(), but it offsets to write to the second 16 color palette.
+-   Also see: RGB(), RGB8(), RGBHTML()
+
+##### Emulated Game Boy Color map attributes on the SMS/Game Gear
+
+On the Game Boy Color, VBK\_REG is used to select between the regular background tile map and the background attribute tile map (for setting tile color palette and other properties).
+
+This behavior is emulated for the SMS/GG when using set\_bkg\_tiles() and VBK\_REG. It allows writing a 1-byte tile map separately from a 1-byte attributes map.
+
+**Note**
+
+Tile map attributes on SMS/Game Gear use different control bits than the Game Boy Color, so a modified attribute map must be used.
+
+### From Game Boy to NES
+
+The NES graphics architecture is similar to the GB's. However, there are a number of design choices in the NES hardware that make the NES a particularly cumbersome platform to develop for, and that will require special attention.
+
+Most notably:
+
+-   PPU memory can only be written in a serial fashion using a data port at 0x2007 (PPUDATA)
+-   PPU memory can only be written to during vblank, or when manually disabling rendering via PPUMASK. Hblank writes to PPU memory are not possible
+-   PPU memory write address is re-purposed for scrolling coordinates when rendering is enabled which means PPU memory updates / scrolling must cooperate
+-   PPU internal palette memory is also mapped to external VRAM area making palette updates during rendering very expensive and error-prone
+-   The base NES system has no support for any scanline interrupts. And cartridge mappers that add scanline interrupts do so using wildly varying solutions
+-   There's no easy way to determine the current scanline or CPU-to-PPU alignment meaning timed code is often required on the NES
+-   The PAL variant of the NES has very different CPU / PPU timings, as do the Dendy clone and other clone systems
+-   The stock 2 kB CPU RAM is just 1/4th the 8kB CPU RAM on a Game Boy
+    -   Free RAM after accounting for ZP, stack, OAM page and system variables further cuts this in half
+    -   This means a lot of GB code will need to be carefully optimized for RAM usage when ported to the NES
+    -   In particular, make sure to use the "const" modifier for arrays that are read-only, to make sure they don't end up in RAM
+
+To provide an easier experience, gbdk-nes attempts to hide most of these quirks so that in theory the programming experience for gbdk-nes should be as close as possible to that of the GB/GBC. However, to avoid surprises it is recommended to familiarize yourself with the NES-specific quirks and implementation choices mentioned here.
+
+This entire section is written as a guide on porting GB projects to NES. If you are new to GBDK, you may wish to familiarize yourself with using GBDK for GB development first as the topics covered will make a lot more sense after gaining experience with GB development.
+
+#### Mapper
+
+Currently the NES support in GBDK uses UNROM-512 (Mapper30) with single-screen mirroring.
+
+#### Buffered mode vs direct mode
+
+On the GB, the vblank period serves as an optimal time to write data to PPU memory, and PPU memory can also be written efficiently with VRAM DMA.
+
+On the NES, writing PPU memory during the vblank period is not optional. Whenever rendering is turned on the PPU is in a state where accessing PPU memory results in undefined behavior outside the short vblank period. The NES also has no VRAM DMA hardware to help with data writes. This makes the vblank period not only more precious, but important to never exceed to avoid glitched games.
+
+To deal with this limitation, all functions in gbdk-nes that write to PPU memory can run in either _Buffered_ or _Direct_ mode.
+
+The good news is that switching between buffered and direct mode in gbdk-nes is usually done behind-the-scenes and normally shouldn't affect your code too much, as long as you use the portable GBDK functions and macros to do this.
+
+-   DISPLAY\_ON / SHOW\_BG / SHOW\_SPR will all switch the system into buffered mode, allowing limited amounts of transfers during vblank, without affecting the display of graphics
+-   DISPLAY\_OFF will switch the system into direct mode, allowing much larger/faster transfers while the screen is blanked
+
+The following sections describe how the buffered / direct modes work in more detail. As buffered / direct mode is mostly hidden by the API calls, feel free to skip these sections if you wish.
+
+##### Buffered mode implementation details
+
+To take maximum advantage of the short vblank period, gbdk-nes implements a popular optimization: An unrolled loop that pulls prepared data bytes from the stack.
+
+PLA
+STA PPUDATA
+...
+PLA
+STA PPUDATA
+RTS
+
+The data structure to facilitate this is usually called a vram transfer buffer, often affectionately called a "popslide" buffer after Damian Yerrick's implementation. This buffer essentially forms a list of commands where each command sets up a new PPU address and then writes a sequence of bytes with an auto-increment of either +1 or +32. Each such command is often called a "stripe" in the nesdev community.
+
+The transfer buffer starts at 0x100 and takes around half of the hardware stack page. You can think of the transfer buffer as a software-implemented DMA that allows writing bytes at the optimal rate of 8 cycles / byte. (ignoring the PPU address setup cost)
+
+The buffer supports writing up to 32 continuous bytes at a time. This allows updating a full screen row / column, or two 8x8 tiles worth of tile data in one command / "stripe".
+
+By doing writes to this buffer during game logic, your game will effectively keep writing data transfer commands for the vblank NMI handler to process in the next vblank period, without having to wait until the vblank.
+
+Given that the transfer buffer only has space for around 100 data bytes, it is important to not overfill the buffer, as this will bring code execution to a screeching halt, until the NMI handler empties the old contents of the buffer to free up space and allow new commands to be written.
+
+Buffered mode is typically used for scrolling updates or dynamically animated tiles, where only a small amount of bytes need updating per frame.
+
+##### Direct mode implementation details
+
+During direct mode, all graphics routines will write directly to the PPUADDR / PPUDATA ports and the transfer buffer limit is never a concern because the transfer buffer is effectively bypassed.
+
+Direct mode is typically used for initializing large amounts of tile data at boot and/or level loading time. Unless you plan to have an animated loading screen and decompress a lot of data, it makes more sense to just fade the screen to black and allow direct mode to write data as fast as possible.
+
+Direct mode also affects how (fake) interrupt handlers are processed. As long as vsync() is called on each frame, the VBL and LCD handlers will still be executed in direct mode - but no graphics registers will be written.
+
+The TIM handler will still be executed as normal.
+
+##### Caveat: Write appropriate global backdrop before turning display off
+
+On the GB, when the display is turned off the LCD will display a whiter-than-white color.
+
+On the NES, calling DISPLAY\_OFF will turn sprites and BG off and allow VRAM writes in direct mode. But the color displayed will be last global backdrop color (i.e. palette entry 0) that was written before DISPLAY\_OFF was called.
+
+Because all palette writes will be postponed in direct mode, the same also applies to other palette entries: Their values will be maintained in RAM, but never actually reach the PPU's hardware palette registers until buffered mode is re-entered by calling DISPLAY\_ON.
+
+You should not try to do any palette fades after calling DISPLAY\_OFF, as they will be delayed in direct mode until the display is turned on again with DISPLAY\_ON. Once DISPLAY\_ON is called, the NMI handler will start updating the hardware palette registers with the RAM registers as normal.
+
+#### Shadow PPU registers
+
+Like the SMS, the NES hardware is designed to only allow loading the full X/Y scroll on the very first scanline. i.e., under normal operation you are only allowed to change the Y-scroll once.
+
+In contrast to the SMS, this limitation can be circumvented with a specific set of out-of-order writes to the PPUSCROLL/PPUADDR registers, taking advantage of the quirk that the PPUADDR and PPUSCROLL share register bits. But this write sequence is very timing-sensitive as the writes need to fall into (a smaller portion of) the hblank period in order to avoid race conditions when the CPU and PPU both try to update the same register during scanline rendering.
+
+To simplify the programming interface, gbdk-nes functions like move\_bkg / scroll\_bkg only ever update shadow registers in RAM. The vblank NMI handler will later pick these values up and write them to the actual PPU registers registers.
+
+#### Implementation of (fake) vbl / lcd handlers
+
+GBDK provides an API for installing Interrupt Service Routines that execute on start of vblank (VBL handler), or on a specific scanline (LCD handler).
+
+But the base NES system has no suitable scanline interrupts that can provide the exact equivalent functionality. So instead, gbdk-nes API allows _fake_ handlers to be installed in the goal of keeping code compatible with other platforms.
+
+-   An installed VBL handler will be called immediately when calling vsync. This handler should only update PPU shadow registers. After each invocation, shadow registers are stored into a buffer.
+-   An installed LCD handler for a specific scanline will then be called repeatedly until the value of \_lcd\_scanline is either set to an earlier scanline or >= 240. After each invocation, shadow registers are stored into a buffer.
+-   After the built-in vblank NMI handler has finished palette updates, OAM DMA, VRAM updates it will then use the buffered VBL shadow registers to write the real registers. If LCD handlers are enabled it will then manually run a delay loop to reach the particular scanlines that the installed LCD handler was pre-called for, and use the contents of the buffer to update registers.
+
+Because the LCD "ISR" is actually implemented with a delay loop, it will burn a lot of CPU cycles in the frame - the further down the requested scanline is the larger the CPU cycle loss. In practice this makes this faked-LCD-ISR functionality mostly suitable for status bars at the top of the screen screen. Or for simple parallax cutscenes where the CPU has little else to do.
+
+To make porting between user VBL / LCD handlers written in C easier, gbdk-nes also provides aliases for the shadow registers that correspond to the GB hardware registers.
+
+-   SCX\_REG is an alias for bkg\_scroll\_x shadow register
+-   SCY\_REG is an alias for bkg\_scroll\_y shadow register
+-   LYC\_REG is an alias for \_lcd\_scanline shadow register
+
+Because these are shadow registers that are interpreted by the GBDK library to mimick GB behaviour, they won't behave exactly how the GB hardware registers do under all conditions. However, for most practical purposes they allow writing portable VBL / LCD handlers in C.
+
+**Note**
+
+The bkg\_scroll\_y shadow register functions the same as SCY\_REG GB, with its value added to \_lcd\_scanline to determine the final Y scrolling coordinate. However, its range is different due to tilemaps being 32x30 instead 32x32.
+
+Negative coordinates won't work correctly due to the wrapping from 239 to 0. Instead, they need to be corrected with this wrapping in mind. i.e. a negative coordinate of -1 needs to be converted to 239 before being written to bkg\_scroll\_y.
+
+A portable way to do this is to check for a negative offset, and use the screen height define:
+
+SCY\_REG = offset < 0 ? (uint8\_t)(DEVICE\_SCREEN\_BUFFER\_HEIGHT\*8 + offset) : offset;
+
+#### Caveat: Make sure to call vsync on every frame
+
+On the GB, the call to vsync is an optional call that serves two purposes:
+
+1.  It provides a consistent frame timing for your game
+2.  It allows future register writes to be synchronized to the screen
+
+On gbdk-nes the second point is no longer true, because writes need to be made to the shadow registers either _before_ vsync is called, or in a user VBL isr handler.
+
+But the vsync call serves three other very important purposes:
+
+A. It calls the optional VBL handler, where shadow registers can be written (and will later be picked up by the actual vblank NMI handler) B. It repeatedly calls the optional LCD handler up to MAX\_LCD\_ISR\_CALLS times. After each call, PPU shadow registers are stored into a buffer that will later be used by timed code in the NMI to handle mid-frame changes for screen splits / sprite hiding / etc. C. It calls flush\_shadow\_attributes so that updates to background attributes actually get written to PPU memory
+
+For these reasons you should always include a call to vsync if you expect to see any graphical updates on the screen.
+
+#### Implementation of timer handler
+
+The nature of the deferred handling for fake VBL and LCD handlers in gbdk-nes means that lag frames will cause these handlers to be called at delayed irregular times.
+
+For graphics updates this is the behaviour you usually want. But for non-graphics tasks like music playback it will cause distracting stutter.
+
+The timer overflow handler (TIM) provides an alternative method that is guaranteed to be stutter-free. The TIM handler is always called if timer overflow occurs at the end of the NMI handler in both buffered and direct mode.
+
+The TMA\_REG and TAC\_REG hardware registers are emulated via RAM variable with the same names. The timer emulation matches the values of these registers for a GBC running in double-speed mode. But there will be a small variation in exact frequency compared to real GBC hardware, and the nature of the timer emulation via vblank means the execution is not as evenly paced as on GBC hardware.
+
+The TIMA\_REG should not be written or read in gbdk-nes, as the emulation does not handle its contents exactly as on GB.
+
+At reset, TAC\_REG is set to clock rate 00 and timer enabled, and TMA\_REG is set to either of two values, depending on the detected system:
+
+-   TIMER\_VBLANK\_PARITY\_MODE\_SYSTEM\_60HZ for a Famicom / US NES
+-   TIMER\_VBLANK\_PARITY\_MODE\_SYSTEM\_50Hz for a PAL NES / PAL Famiclone
+
+These default values ensure that the TIM emulation will always call the TIM handler exactly once for every vblank, resulting in 60Hz vs 50Hz depending on the system.
+
+Changing TMA\_REG allows setting a slower or faster frequency for this emulated timer overflow interrupt if your GB game uses the timer overflow hardware for regular events like music that are slower or faster than 60Hz (50Hz for PAL).
+
+If you are porting a GB game to gbdk-nes where the music handler is called in the VBL or LCD handler then it is advisable to move this call to the timer handler, in order to achieve reliable music playback at 60Hz (50Hz for PAL).
+
+Keep in mind that you should NOT write any graphics registers in the TIM handler. This will likely not do what you want, and it may result in bad graphical glitches.
+
+Tweaking the playback rate by setting TMA\_REG / TAC\_REG is a decent way to achieve the same average playback rate as on a GB game that uses a different rate than the vblank tick rate and allow similar music speed for different regions.
+
+However, it is recommended to use the default vblank parity mode whenever remaking the music specifically for 60Hz / 50Hz is an option, as keeping the music tick rate steady will give more pleasant sound playback for rates that are already close to native vblank rate of 60Hz / 50Hz.
+
+**Note**
+
+Because the TIM handler will be called from the vblank NMI, this function and all functions it calls need to use the `#pragma nooverlay` command. This makes memory for local variables and function parameters unique to this function instead of being shared with other functions' allocations in the reusable overlay segment.
+
+#pragma save
+#pragma nooverlay
+void tim\_isr(void)
+{
+    // Do TIM isr things
+}
+#pragma restore
+
+Without this pragma the calls in your TIM handler could end up overwriting local variables or function parameters that the main program was using when it was interrupted. You should also avoid calls to the standard library, and even multiplications and division / modulo operations in your TIM handlers. These more expensive math operations in SDCC are currently implemented with functions that use the overlay segment and would cause similar conflicts. For more details on overlay segment and interrupts, please see section 3.7 in the SDCC manual.
+
+#### Tile Data and Tile Map loading
+
+##### Tile and Map Data in 2bpp Game Boy Format
+
+-   set\_bkg\_data() and set\_sprite\_data() will load 2bpp tile data in "Game Boy" format on both GB and NES.
+-   set\_bkg\_tiles() loads 1-byte-per-tile tilemaps both for the GB and NES.
+
+##### Tile and Map Data in Native Format
+
+Use the following api calls when assets are available in the native format for each platform.
+
+set\_native\_tile\_data()
+
+-   GB/AP: loads 2bpp tiles data
+-   NES: loads 2bpp tiles data
+
+set\_tile\_map()
+
+-   GB/AP: loads 1-byte-per-tile tilemaps
+-   NES: loads 1-byte-per-tile tilemaps
+
+Bit-depth specific API calls:
+
+-   1bpp: set\_1bpp\_colors, set\_bkg\_1bpp\_data, set\_sprite\_1bpp\_data
+-   2bpp: set\_2bpp\_palette, set\_bkg\_2bpp\_data, set\_sprite\_2bpp\_data
+
+Platform specific API calls:
+
+-   set\_bkg\_attributes\_nes16x16(), set\_bkg\_submap\_attributes\_nes16x16(), set\_bkg\_attribute\_xy\_nes16x16()
+
+##### Game Boy Color map attributes on the NES
+
+On the Game Boy Color, VBK\_REG is used to select between the regular background tile map and the background attribute tile map (for setting tile color palette and other properties).
+
+This behavior of setting VBK\_REG to specify tile indices/attributes is not supported on the NES platform. Instead the dedicated functions for attribute setting should be used. These will work on other platforms as well and are the preferred way to set attributes.
+
+To maintain API compatibility with other platforms that have attributes on an 8x8 grid specified with a whole byte per attribute, the NES platform supports the dedicated calls for setting attributes on an 8x8 grid:
+
+-   set\_bkg\_attributes()
+-   set\_bkg\_submap\_attributes()
+-   set\_bkg\_attribute\_xy()
+
+This allows code to for attribute setting to remain unchanged between platforms. The effect of using these calls is that some attribute setting will be redundant due to the coarser attribute grid. i.e., setting the attribute at coordinates (4, 4), (4,5), (5, 4) and (5, 5) will all set the same attribute.
+
+There is one more platform specific difference to note: While the set\_bkg\_attribute\_xy() function takes coordinates on a 8x8 grid, the set\_bkg\_attributes() and set\_bkg\_submap\_attributes() functions take a pointer to data in NES packed attribute format, where each byte contains data for 4 16x16 attribute. i.e. a 32x32 region.
+
+While this implementation detail of how the attribute map is encoded is usually hidden by the API functions it does mean that code which manually tries to read the attribute data is _NOT_ portable between NES/other platforms, and is not recommended.
+
+**Note**
+
+Tile map attributes on NES are on a 16x16 grid and use different control bits than the Game Boy Color.
+
+-   NES 16x16 Tile Attributes are bit packed into 4 attributes per byte with each 16x16 area of a 32x32 pixel block using the bits as follows:
+    -   D1-D0: Top-left 16x16 pixels
+    -   D3-D2: Top-right 16x16 pixels
+    -   D5-D4: Bottom-left 16x16 pixels
+    -   D7-D6: Bottom-right 16x16 pixels
+    -   https://www.nesdev.org/wiki/PPU\_attribute\_tables
+
+### From Game Boy to Mega Duck / Cougar Boy
+
+The Mega Duck is (for practical purposes) functionally identical to the Original Game Boy though it has a couple changes listed below.
+
+#### Summary of Hardware changes:
+
+-   Cartridge Boot Logo: not present on Mega Duck
+-   Cartridge Header data: not present on Mega Duck
+-   Program Entry Point: `0x0000` (on Game Boy: `0x0100` )
+-   Display registers and flag definitions: Some changed
+-   Audio registers and flag definitions: Some changed
+-   MBC ROM bank switching register address: `0x0001` (many Game Boy MBCs use `0x2000 - 0x3FFF`)
+-   Also see links for megaduck development
+
+#### Best Practices
+
+In order for software to be easily ported to the Mega Duck, or to run on both, use these practices. That will allow GBDK to automatically handle _most_ of the differences (for the exceptions see Sound Register Value Changes).
+
+-   Set the target console during build time
+-   Use the GBDK definitions and macros for:
+    -   Video Registers and Flags (examples: LCDC\_REG, LCDCF\_BG8000, etc)
+    -   Audio Registers and Flags (examples: NR12\_REG, NR43\_REG, etc)
+    -   Use the default SWITCH\_ROM macro for changing ROM banks
+
+#### Sound Register Value Changes
+
+There are two hardware changes which will not be handled automatically when following the practices mentioned above.
+
+These changes may be required when using existing Sound Effects and Music Drivers written for the Game Boy.
+
+1.  Registers NR12\_REG, NR22\_REG, NR42\_REG, and NR43\_REG have their contents nybble swapped.
+    -   To maintain compatibility the value to write (or the value read) can be converted this way: `((uint8_t)(value << 4) | (uint8_t)(value >> 4))`
+2.  Register NR32\_REG has the volume bit values changed.
+    -   `Game Boy: Bits:6..5 : 00 = mute, 01 = 100%, 10 = 50%, 11 = 25%`
+    -   `Mega Duck: Bits:6..5 : 00 = mute, 01 = 25%, 10 = 50%, 11 = 100%`
+    -   To maintain compatibility the value to write (or the value read) can be converted this way: `(((~(uint8_t)value) + (uint8_t)0x20u) & (uint8_t)0x60u)`
+
+#### Graphics Register Bit Changes
+
+These changes are handled automatically when their GBDK definitions are used.
+
+| LCDC\_REG Flag | Game Boy | Mega Duck |  | Purpose |
+| --- | --- | --- | --- | --- |
+| LCDCF\_B\_ON | .7 | .7 | (same) | Bit for LCD On/Off Select |
+| LCDCF\_B\_WIN9C00 | .6 | .3 |  | Bit for Window Tile Map Region Select |
+| LCDCF\_B\_WINON | .5 | .5 | (same) | Bit for Window Display On/Off Control |
+| LCDCF\_B\_BG8000 | .4 | .4 | (same) | Bit for BG & Window Tile Data Region Select |
+| LCDCF\_B\_BG9C00 | .3 | .2 |  | Bit for BG Tile Map Region Select |
+| LCDCF\_B\_OBJ16 | .2 | .1 |  | Bit for Sprites Size Select |
+| LCDCF\_B\_OBJON | .1 | .0 |  | Bit for Sprites Display Visible/Hidden Select |
+| LCDCF\_B\_BGON | .0 | .6 |  | Bit for Background Display Visible Hidden Select |
+
+#### Detailed Register Address Changes
+
+These changes are handled automatically when their GBDK definitions are used.
+
+| Register | Game Boy | Mega Duck |
+| --- | --- | --- |
+| LCDC\_REG | 0xFF40 | 0xFF10 |
+| STAT\_REG | 0xFF41 | 0xFF11 |
+| SCY\_REG | 0xFF42 | 0xFF12 |
+| SCX\_REG | 0xFF43 | 0xFF13 |
+| LY\_REG | 0xFF44 | 0xFF18 |
+| LYC\_REG | 0xFF45 | 0xFF19 |
+| DMA\_REG | 0xFF46 | 0xFF1A |
+| BGP\_REG | 0xFF47 | 0xFF1B |
+| OBP0\_REG | 0xFF48 | 0xFF14 |
+| OBP1\_REG | 0xFF49 | 0xFF15 |
+| WY\_REG | 0xFF4A | 0xFF16 |
+| WX\_REG | 0xFF4B | 0xFF17 |
+| \- | \- | \- |
+| NR10\_REG | 0xFF10 | 0xFF20 |
+| NR11\_REG | 0xFF11 | 0xFF22 |
+| NR12\_REG | 0xFF12 | 0xFF21 |
+| NR13\_REG | 0xFF13 | 0xFF23 |
+| NR14\_REG | 0xFF14 | 0xFF24 |
+| \- | \- | \- |
+| NR21\_REG | 0xFF16 | 0xFF25 |
+| NR22\_REG | 0xFF17 | 0xFF27 |
+| NR23\_REG | 0xFF18 | 0xFF28 |
+| NR24\_REG | 0xFF19 | 0xFF29 |
+| \- | \- | \- |
+| NR30\_REG | 0xFF1A | 0xFF2A |
+| NR31\_REG | 0xFF1B | 0xFF2B |
+| NR32\_REG | 0xFF1C | 0xFF2C |
+| NR33\_REG | 0xFF1D | 0xFF2E |
+| NR34\_REG | 0xFF1E | 0xFF2D |
+| \- | \- | \- |
+| NR41\_REG | 0xFF20 | 0xFF40 |
+| NR42\_REG | 0xFF21 | 0xFF42 |
+| NR43\_REG | 0xFF22 | 0xFF41 |
+| NR44\_REG | 0xFF23 | 0xFF43 |
+| \- | \- | \- |
+| NR50\_REG | 0xFF24 | 0xFF44 |
+| NR51\_REG | 0xFF25 | 0xFF46 |
+| NR52\_REG | 0xFF26 | 0xFF45 |
+| \- | \- | \- |

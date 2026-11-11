@@ -1,0 +1,62 @@
+# General Documentation
+
+> Source: https://gbdk.org/docs/api/index.html (GBDK-2020 v4.5.0)
+
+-   Getting Started
+-   Links, Tools and Debugging
+-   Using GBDK
+-   Coding Guidelines
+-   ROM/SRAM Banking and MBCs
+-   Supported Consoles & Cross Compiling
+-   GBDK Toolchain
+-   Example Programs
+-   Frequently Asked Questions (FAQ)
+-   Migrating to new GBDK Versions
+-   GBDK Release Notes
+-   Toolchain settings
+
+## Introduction
+
+Welcome to GBDK-2020! The best thing to do is head over to the Getting Started section to get up and running.
+
+If you are upgrading please check GBDK Release Notes and Migrating to new GBDK Versions
+
+## About the Documentation
+
+This documentation is partially based on material written by the original GBDK authors in 1999 and updated for GBDK-2020. The API docs are automatically generated from the C header files using Doxygen.
+
+GBDK-2020 is an updated version of the original GBDK with a modernized SDCC toolchain and many API improvements and fixes. It can be found at: https://github.com/gbdk-2020/gbdk-2020/.
+
+The original GBDK sources, documentation and website are at: http://gbdk.sourceforge.net/
+
+## About GBDK
+
+The GameBoy Developer's Kit (GBDK, GBDK-2020) is used to develop games and programs for the Nintendo Game Boy (and some other consoles) in C and assembly. GBDK includes a set of libraries for the most common requirements and generates image files for use with a real GameBoy or emulators.
+
+GBDK features:
+
+-   C and ASM toolchain based on SDCC with some support utilities
+-   A set of libraries with source code
+-   Example programs in ASM and in C
+-   Support for multiple ROM bank images and auto-banking
+-   Support for multiple consoles: Game Boy, Analogue Pocket, Mega Duck, Master System and Game Gear and NES
+
+GBDK is freeware. Most of the tooling code is under the GPL. The runtime libraries should be under the LGPL. Please consider mentioning GBDK in the credits of projects made with it.
+
+* * *
+
+## Historical Info and Links
+
+Work on the original GBDK (pre-2020) was by:
+
+Pascal Felber, Lars Malmborg, Michael Hope, David Galloway (djmips), John Fuge, and others.
+
+The following is from the original GBDK documentation:
+
+Thanks to quang for many of the comments to the gb functions. Some of the comments are ripped directly from the Linux Programmers manual, and some directly from the pan/k00Pa document.
+
+quangDX.com
+
+The (original) gbdk homepage
+
+Jeff Frohwein's GB development page. A extensive source of Game Boy related information, including GeeBee's GB faq and the pan/k00Pa document.

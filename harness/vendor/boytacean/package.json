@@ -1,0 +1,29 @@
+{
+  "name": "boytacean",
+  "type": "module",
+  "collaborators": [
+    "João Magalhães <joamag@gmail.com>"
+  ],
+  "description": "A Game Boy emulator that is written in Rust.",
+  "version": "0.13.2",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/joamag/boytacean"
+  },
+  "files": [
+    "boytacean_bg.wasm",
+    "boytacean.js",
+    "boytacean.d.ts"
+  ],
+  "main": "boytacean.js",
+  "types": "boytacean.d.ts",
+  "sideEffects": [
+    "./snippets/*"
+  ],
+  "keywords": [
+    "gameboy",
+    "emulator",
+    "rust"
+  ]
+}

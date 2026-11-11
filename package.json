@@ -1,0 +1,20 @@
+{
+  "name": "dangernoodle",
+  "private": true,
+  "type": "module",
+  "description": "Danger Noodle: a Game Boy Color game built with GBDK-2020 on the RogueGB engine",
+  "scripts": {
+    "build": "node tools/build.mjs",
+    "rebuild": "node tools/build.mjs --clean",
+    "test": "node tools/test.mjs",
+    "test:update": "node tools/test.mjs --update",
+    "play": "node tools/serve.mjs --open",
+    "run": "node harness/cli.mjs run",
+    "vars": "node harness/cli.mjs vars",
+    "bundle": "node tools/bundle.mjs",
+    "profile": "node harness/profile.mjs"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

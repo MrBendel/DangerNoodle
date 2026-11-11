@@ -1,0 +1,12 @@
+build/
+tools/.gbdk-*/
+tools/gbdk/
+tools/gbdk-win64/
+tools/*.zip
+tools/*.tar.gz
+scratch/
+node_modules/
+__pycache__/
+
+# Purchased art packs: their licences may not allow redistributing the files.
+artwork/packs/

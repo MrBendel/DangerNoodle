@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#161816">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Danger Noodle">
+<title>Danger Noodle Playtest</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="app">
+  <header>
+    <div class="brand">Danger Noodle <span>playtest</span></div>
+    <div class="row">
+      <button id="b-install" class="hidden" title="Install app">📲 Install</button>
+      <div id="build-status" class="pill">no ROM</div>
+    </div>
+  </header>
+
+  <main id="playtest-view">
+    <section class="stage">
+      <div class="screen-wrap" id="screen-wrap">
+        <canvas id="screen" width="160" height="144"></canvas>
+        <div id="overlay" class="overlay hidden"></div>
+        <button id="paused" class="paused hidden" title="Play (P)">⏸ Paused · tap to play</button>
+      </div>
+      <div class="statusbar">
+        <span id="st-frame">frame 0</span>
+        <span id="st-fps">0 fps</span>
+        <span id="st-speed">1x</span>
+        <span id="st-rec" class="rec hidden">● REC</span>
+        <span id="st-play" class="hidden">▶ REPLAY</span>
+      </div>
+      <div class="transport">
+        <button id="b-pause" title="Pause (P)">⏸ Pause</button>
+        <button id="b-step" title="Step one frame (N)">⏭ Step</button>
+        <button id="b-reset" title="Reset (F2)">⟲ Reset</button>
+        <select id="sel-speed" title="Speed">
+          <option value="0.25">¼x</option><option value="0.5">½x</option>
+          <option value="1" selected>1x</option><option value="2">2x</option><option value="4">4x</option>
+        </select>
+        <button id="b-audio" title="Toggle sound (M)">🔇 Sound</button>
+        <button id="b-shot" title="Screenshot (F12)">📷</button>
+      </div>
+      <div id="touchpad" class="touchpad">
+        <div class="touch-top">
+          <div class="dpad" id="dpad">
+            <button data-btn="UP" class="up" aria-label="Up">▲</button>
+            <button data-btn="LEFT" class="left" aria-label="Left">◀</button>
+            <div class="pivot" aria-hidden="true"></div>
+            <button data-btn="RIGHT" class="right" aria-label="Right">▶</button>
+            <button data-btn="DOWN" class="down" aria-label="Down">▼</button>
+          </div>
+          <div class="ab" id="ab-pad">
+            <button data-btn="B" class="b">B</button>
+            <button data-btn="A" class="a">A</button>
+          </div>
+        </div>
+        <div class="mid">
+          <button data-btn="SELECT">SELECT</button>
+          <button data-btn="START">START</button>
+        </div>
+      </div>
+      <label id="haptic-label" class="sr-only" aria-hidden="true"><input type="checkbox" switch></label>
+    </section>
+
+    <aside class="panel">
+      <details open>
+        <summary>Record &amp; report</summary>
+        <div class="row">
+          <button id="b-rec">● Record</button>
+          <button id="b-report" title="Saves the last ~20 s of input, a save state and a screenshot">🐞 Report bug</button>
+        </div>
+        <textarea id="note" rows="2" placeholder="What happened? (attached to recordings and bug reports)"></textarea>
+        <div class="row small">
+          <label><input type="checkbox" id="chk-restart" checked> Restart on rebuild</label>
+        </div>
+        <ul id="replays" class="list"></ul>
+        <div class="row small">
+          <label class="filebtn">Load replay… <input type="file" id="file-replay" accept=".json"></label>
+          <label class="filebtn">Load ROM… <input type="file" id="file-rom" accept=".gb,.gbc"></label>
+        </div>
+      </details>
+
+      <details open>
+        <summary>Watch</summary>
+        <div class="row">
+          <input id="watch-name" list="symbols" placeholder="variable name" autocomplete="off">
+          <select id="watch-type">
+            <option>u8</option><option>i8</option><option>u16</option><option>i16</option><option>bool</option>
+          </select>
+          <button id="b-watch">Add</button>
+        </div>
+        <datalist id="symbols"></datalist>
+        <table id="watches" class="watches"><tbody></tbody></table>
+      </details>
+
+      <details open>
+        <summary>State</summary>
+        <div class="row">
+          <button id="b-save" title="Quick save (F5)">Save state</button>
+          <button id="b-load" title="Quick load (F9)">Load state</button>
+        </div>
+        <div class="row small muted">Hold <kbd>R</kbd> to rewind · hold <kbd>Tab</kbd> to fast-forward</div>
+      </details>
+
+      <details>
+        <summary>Controls</summary>
+        <table class="keys">
+          <tr><td>D-pad</td><td><kbd>Arrows</kbd> / <kbd>WASD</kbd></td></tr>
+          <tr><td>A / B</td><td><kbd>X</kbd> <kbd>K</kbd> / <kbd>Z</kbd> <kbd>J</kbd></td></tr>
+          <tr><td>Start / Select</td><td><kbd>Enter</kbd> / <kbd>Shift</kbd></td></tr>
+          <tr><td>Pause / Step</td><td><kbd>P</kbd> / <kbd>N</kbd></td></tr>
+          <tr><td>Rewind / Fast</td><td><kbd>R</kbd> / <kbd>Tab</kbd></td></tr>
+          <tr><td>Gamepad</td><td>standard mapping supported</td></tr>
+        </table>
+      </details>
+
+      <details id="build-log-box" class="hidden" open>
+        <summary>Build output</summary>
+        <pre id="build-log"></pre>
+      </details>
+    </aside>
+  </main>
+  <div id="toast" class="toast hidden"></div>
+</div>
+<script type="module" src="app.js"></script>
+</body>
+</html>

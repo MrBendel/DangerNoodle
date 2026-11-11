@@ -1,0 +1,43 @@
+name: Build and test
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Cache GBDK-2020 4.5.0
+        id: cache-gbdk
+        uses: actions/cache@v4
+        with:
+          path: tools/.gbdk-linux64
+          key: gbdk-2020-4.5.0-linux64
+
+      - name: Download GBDK-2020 4.5.0
+        if: steps.cache-gbdk.outputs.cache-hit != 'true'
+        run: curl -fSL -o tools/gbdk-linux64.tar.gz https://github.com/gbdk-2020/gbdk-2020/releases/download/4.5.0/gbdk-linux64.tar.gz
+
+      - name: Build ROM and run headless tests
+        run: node tools/test.mjs
+
+      - name: Bundle the standalone playtest page
+        run: node tools/bundle.mjs --standalone
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dangernoodle
+          path: |
+            build/dangernoodle.gb
+            build/playtest-standalone.html
