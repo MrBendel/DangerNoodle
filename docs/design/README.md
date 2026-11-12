@@ -62,7 +62,9 @@ before the timer runs out.
   to you bites off a segment, so boosting can finish a coil before the next attack lands.
 - **Thrown food:** some enemies throw food at you, and eating it grows you. Bites take
   length away and thrown food gives it back, so length (your health in a room) rises and
-  falls all through a fight instead of only going down.
+  falls all through a fight instead of only going down. Throws are not random: the game
+  decides how much food to throw to keep your length in the range the room is designed
+  for, throwing more when you're short and less when you're long.
 - **Small critters** (bugs, mice) are just food, with no fight needed.
 - **Overworld combat:** a quick lunge bite as the baseline, plus spit items once earned.
   Precise coiling stays special to dungeons.

@@ -47,6 +47,23 @@ engine. Proposals, not decisions: change freely.
 - **Room data:** RogueGB's chunk format and editor (`web/chunks.html`, `tools/chunks.mjs`)
   can be adapted for hand-built rooms: walls, water, switches, doors, spawns.
 
+## Thrown food: a length director
+
+Enemies throw food to keep the noodle's length in the range the room is designed for,
+not at random (design doc, Combat). A sketch:
+
+- **Each room sets a target length range** (low, high): the same numbers its puzzles
+  need, so the HUD's "length needed" and the director agree.
+- **Who throws, and how often, comes from where the length sits:** below the range,
+  throwers throw more often and nearer the head; inside it, a steady trickle; above it,
+  little or nothing. One comparison of `noodle_len` with the range per throw decision:
+  cheap, no per-frame cost.
+- **It should be invisible:** throws come from enemies' own attack timers, so the
+  director only picks which upcoming attack is a food throw, and the player sees
+  enemies acting, not a meter being balanced.
+- **Pending decisions:** whether thrown food also speeds the noodle up (probably not:
+  speed would creep up mid-fight), and whether it can carry an element.
+
 ## Overworld: free movement, sprite body
 
 - Smooth (pixel) movement while a direction is held, through RogueGB's scrolling camera
