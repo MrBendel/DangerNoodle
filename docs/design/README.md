@@ -1,6 +1,6 @@
 # Danger Noodle — Design Doc
 
-> Snapshot of the live design doc, 2026-11-10:
+> Snapshot of the live design doc, 2026-11-12:
 > https://claude.ai/artifact/HHhGKf5oyhKKgrSjeMPUD9
 > The live doc is the source of truth; refresh this copy when it changes.
 > Engine notes for building it are in [engine-plan.md](engine-plan.md).
@@ -60,6 +60,9 @@ before the timer runs out.
   you the enemy's element.
 - **Enemy attacks:** on a fixed real-time clock, not tied to your movement. An attack next
   to you bites off a segment, so boosting can finish a coil before the next attack lands.
+- **Thrown food:** some enemies throw food at you, and eating it grows you. Bites take
+  length away and thrown food gives it back, so length (your health in a room) rises and
+  falls all through a fight instead of only going down.
 - **Small critters** (bugs, mice) are just food, with no fight needed.
 - **Overworld combat:** a quick lunge bite as the baseline, plus spit items once earned.
   Precise coiling stays special to dungeons.
