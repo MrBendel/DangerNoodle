@@ -42,7 +42,7 @@
 uint16_t game_seed;
 uint16_t test_seed;
 uint16_t score, best_score;
-uint8_t noodle_len, noodle_dir;
+uint8_t noodle_len, noodle_dir, noodle_prev_dir;
 uint8_t head_x, head_y;
 uint8_t food_x, food_y;
 uint8_t step_delay, step_timer;
@@ -163,6 +163,7 @@ void play_enter(void) BANKED {
     dir_queued = 0;
     step_delay = step_timer = START_DELAY;
     noodle_dir = DIR_RIGHT;
+    noodle_prev_dir = DIR_UP;  // so the first double-back bends upward
     noodle_len = START_LEN;
     // Tail first, so the head lands at body_i.
     body_i = 0xFF;
@@ -186,10 +187,40 @@ static void pause_banner(void) {
     else fill_win_rect(7, 1, 6, 1, 0);
 }
 
+// The cell next to the head in direction d, in ahead_x/ahead_y.
+static uint8_t ahead_x, ahead_y;
+static void ahead(uint8_t d) {
+    ahead_x = head_x;
+    ahead_y = head_y;
+    switch (d) {
+        case DIR_RIGHT: ahead_x++; break;
+        case DIR_LEFT: ahead_x--; break;
+        case DIR_UP: ahead_y--; break;
+        default: ahead_y++; break;
+    }
+}
+
+static uint8_t ahead_open(uint8_t d) {
+    ahead(d);
+    return ahead_x >= BOARD_X0 && ahead_x <= BOARD_X1 && ahead_y >= BOARD_Y0 && ahead_y <= BOARD_Y1 &&
+           !occupied[CELL(ahead_x, ahead_y)];
+}
+
 static void queue_turn(uint8_t d) {
     uint8_t last = dir_queued ? dir_queue[dir_queued - 1] : noodle_dir;
-    // No turning back on yourself (DIR_* pairs differ in bit 0), and no repeats.
-    if (dir_queued == 2 || d == last || d == (last ^ 1)) return;
+    if (dir_queued == 2 || d == last) return;
+    // DIR_* pairs differ in bit 0: d is straight back. The noodle doubles back in
+    // a hairpin: one step the way it went before its last turn (away from its own
+    // body; the other side if that cell is blocked), then the way pressed.
+    if (d == (last ^ 1)) {
+        if (dir_queued) return;
+        uint8_t side = noodle_prev_dir;
+        if (!ahead_open(side)) side ^= 1;
+        dir_queue[0] = side;
+        dir_queue[1] = d;
+        dir_queued = 2;
+        return;
+    }
     dir_queue[dir_queued++] = d;
 }
 
@@ -203,18 +234,14 @@ static void crash(void) {
 
 static void step(void) {
     if (dir_queued) {
+        noodle_prev_dir = noodle_dir;
         noodle_dir = dir_queue[0];
         dir_queue[0] = dir_queue[1];
         dir_queued--;
         sfx_play(SFX_TURN);
     }
-    uint8_t x = head_x, y = head_y;
-    switch (noodle_dir) {
-        case DIR_RIGHT: x++; break;
-        case DIR_LEFT: x--; break;
-        case DIR_UP: y--; break;
-        default: y++; break;
-    }
+    ahead(noodle_dir);
+    uint8_t x = ahead_x, y = ahead_y;
     uint8_t ate = x == food_x && y == food_y;
     uint8_t grows = ate && noodle_len < NOODLE_MAX;
     // Unless it grows, the tail moves on this step: its cell is free to enter.

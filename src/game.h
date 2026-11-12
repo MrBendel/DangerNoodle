@@ -31,6 +31,7 @@ extern uint16_t test_seed;   // tests set it (nonzero) to start on a known seed
 extern uint16_t score, best_score;
 extern uint8_t noodle_len;   // segments, the head included
 extern uint8_t noodle_dir;   // DIR_*: the way the head last moved
+extern uint8_t noodle_prev_dir;  // DIR_*: the way it went before its last turn
 extern uint8_t head_x, head_y;  // in cells
 extern uint8_t food_x, food_y;
 extern uint8_t step_delay;   // frames between moves (fewer as it eats)

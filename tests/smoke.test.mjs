@@ -37,11 +37,8 @@ test('the noodle starts 3 long heading right, and keeps moving on its own', () =
   assert.equal(emu.v('head_x'), x0 + 3);
 });
 
-test('the d-pad turns it, but never straight back on itself', () => {
+test('the d-pad turns it', () => {
   const emu = startGame();
-  emu.tap('LEFT');
-  moves(emu);
-  assert.equal(emu.v('noodle_dir'), RIGHT, 'a reverse is ignored');
   emu.tap('DOWN');
   moves(emu);
   assert.equal(emu.v('noodle_dir'), DOWN);
@@ -51,6 +48,39 @@ test('the d-pad turns it, but never straight back on itself', () => {
   moves(emu, 2);
   assert.equal(emu.v('noodle_dir'), UP);
   assert.equal(emu.v('head_y'), y - 1);
+});
+
+test('the opposite way doubles it back in a hairpin, away from its body', () => {
+  const emu = startGame();
+  const x = emu.v('head_x'), y = emu.v('head_y');
+  // Heading right, never turned: it bends up first.
+  emu.tap('LEFT');
+  moves(emu);
+  assert.equal(emu.v('noodle_dir'), UP, 'first a step to the side');
+  moves(emu);
+  assert.equal(emu.v('noodle_dir'), LEFT);
+  assert.deepEqual([emu.v('head_x'), emu.v('head_y')], [x - 1, y - 1], 'running back beside itself');
+  // Again: it bends the way it went before its last turn (up), not into its body.
+  emu.tap('RIGHT');
+  moves(emu, 2);
+  assert.equal(emu.v('noodle_dir'), RIGHT);
+  assert.deepEqual([emu.v('head_x'), emu.v('head_y')], [x, y - 2]);
+  assert.equal(emu.v('dead_timer'), 0);
+});
+
+test('a hairpin into a wall bends the other way', () => {
+  const emu = startGame();
+  // Up against the top wall, heading right.
+  emu.tap('UP');
+  emu.until((e) => e.v('head_y') === 1, 300, 'the top row');
+  emu.tap('RIGHT');
+  moves(emu);
+  const x = emu.v('head_x');
+  emu.tap('LEFT');
+  moves(emu, 2);
+  assert.equal(emu.v('noodle_dir'), LEFT);
+  assert.deepEqual([emu.v('head_x'), emu.v('head_y')], [x - 1, 2]);
+  assert.equal(emu.v('dead_timer'), 0);
 });
 
 test('eating grows the noodle and scores', () => {

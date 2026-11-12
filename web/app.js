@@ -138,14 +138,10 @@ function computePointerMask(zone, clientX, clientY) {
     const dx = clientX - (r.left + r.width / 2);
     const dy = clientY - (r.top + r.height / 2);
     const dist = Math.hypot(dx, dy);
+    // One direction only, never a diagonal: a snake wants deliberate turns.
     if (dist > 10 && dist < Math.max(r.width, r.height) * 0.95) {
-      const ang = Math.atan2(dy, dx);
-      const c = Math.cos(ang);
-      const s = Math.sin(ang);
-      if (c > 0.3827) mask |= BTN.RIGHT;
-      if (c < -0.3827) mask |= BTN.LEFT;
-      if (s > 0.3827) mask |= BTN.DOWN;
-      if (s < -0.3827) mask |= BTN.UP;
+      if (Math.abs(dx) >= Math.abs(dy)) mask = dx > 0 ? BTN.RIGHT : BTN.LEFT;
+      else mask = dy > 0 ? BTN.DOWN : BTN.UP;
     }
   } else {
     for (const el of actionBtns) {
@@ -180,6 +176,8 @@ function updateTouchState() {
 touchpad.addEventListener('pointerdown', (e) => {
   e.preventDefault();
   const zone = dpadEl.contains(e.target) ? 'dpad' : 'buttons';
+  // One finger on the d-pad at a time.
+  if (zone === 'dpad' && [...activePointers.values()].some((p) => p.zone === 'dpad')) return;
   const mask = computePointerMask(zone, e.clientX, e.clientY);
   activePointers.set(e.pointerId, { zone, mask });
   touchpad.setPointerCapture?.(e.pointerId);
@@ -190,6 +188,10 @@ touchpad.addEventListener('pointermove', (e) => {
   const p = activePointers.get(e.pointerId);
   if (!p) return;
   e.preventDefault();
+  // A d-pad press keeps its direction until the finger lifts: sliding never
+  // turns the noodle. (A press that starts in the dead centre takes the first
+  // direction it slides to.)
+  if (p.zone === 'dpad' && p.mask) return;
   p.mask = computePointerMask(p.zone, e.clientX, e.clientY);
   updateTouchState();
 });
