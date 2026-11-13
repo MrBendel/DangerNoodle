@@ -31,7 +31,9 @@ engine. Proposals, not decisions: change freely.
   body behind them stays background tiles that change once per step. The cell the head
   is entering stays floor until the next step makes it body. The body fills its cells
   edge to edge, a segment a cell: straight pieces with a divider on the tail side only
-  (flipped to suit), so they run into each other, and a flipped bend. The head and tip
+  (flipped to suit), so they run into each other, and bends: flips can't move a
+  divider to another edge, so the bend and its rotation are two tiles, flipped for
+  all eight turns. The head and tip
   are their own pieces, open where they meet it,
   so they slide out of it with no seam. The tip has its own sprite palette whose
   color 3 is grass, masking the body under its taper; into a bend it steps at once,
@@ -59,8 +61,9 @@ engine. Proposals, not decisions: change freely.
   palettes, so a fire- or ice-coated segment is the same tile on another palette, and the
   bulge travelling down the body is a palette or tile change per move. Half-and-half
   bodies come at no cost.
-- **Turns and corners:** a body style is a straight tube, a bend (flipped for the four
-  corners), and head and tail sprites (right, down and up drawn; left flipped).
+- **Turns and corners:** a body style is a straight segment and a bend, each drawn
+  across and rotated (flips give the rest), and head and tail sprites (right, down
+  and up drawn; left flipped).
 - **Enemies** are 16×16 sprites on the block grid (RogueGB's `sprite_slot.c` draws
   16×16 characters); critters, keys and the bulge's highlight can be 8×8.
 - **Coil detection:** when the head moves next to its own body, flood-fill from each

@@ -263,3 +263,12 @@ test('screen: game over', () => {
   emu.until((e) => e.v('dead_timer'), 300, 'the crash');
   matchGolden(settle(emu, GAME_OVER, 'game over screen'), 'game-over');
 });
+
+test('screen: corners (every bend has its divider on the tail side)', () => {
+  const emu = grow(startGame(), 6);
+  turn(emu, 'DOWN', 2);
+  turn(emu, 'LEFT', 2);
+  turn(emu, 'DOWN', 2);
+  turn(emu, 'RIGHT');
+  matchGolden(emu.idle(10), 'play-corners');
+});

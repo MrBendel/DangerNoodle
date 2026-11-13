@@ -98,7 +98,7 @@ static void put(uint8_t x, uint8_t y, uint8_t tile, uint8_t attr) {
 // The body piece for a cell whose neighbours along the body are directions a
 // (toward the tail) and b (toward the head): a straight segment, its divider
 // flipped to the tail side so it runs on into the next one toward the head, or
-// the bend (left to down) flipped round.
+// a bend, likewise.
 static uint8_t piece_attr;
 static uint8_t piece(uint8_t a, uint8_t b) {
     piece_attr = PLAY_PAL_NOODLE;
@@ -108,9 +108,17 @@ static uint8_t piece(uint8_t a, uint8_t b) {
         if (a == DIR_DOWN) piece_attr |= A_FLIPY;
         return a <= DIR_LEFT ? T_TUBE_H : T_TUBE_V;
     }
-    if (a == DIR_RIGHT || b == DIR_RIGHT) piece_attr |= A_FLIPX;
-    if (a == DIR_UP || b == DIR_UP) piece_attr |= A_FLIPY;
-    return T_BEND;
+    // A bend: the tail side picks the drawing (its divider on that edge), flips
+    // turn it to the head side.
+    if (a <= DIR_LEFT) {  // from the left (flipped: right), turning down (up)
+        if (a == DIR_RIGHT) piece_attr |= A_FLIPX;
+        if (b == DIR_UP) piece_attr |= A_FLIPY;
+        return T_BEND_H;
+    }
+    // From the top (flipped: bottom), turning right (left).
+    if (a == DIR_DOWN) piece_attr |= A_FLIPY;
+    if (b == DIR_LEFT) piece_attr |= A_FLIPX;
+    return T_BEND_V;
 }
 
 // A sprite tile facing d: right, down and up are drawn; left flips right.
@@ -319,7 +327,7 @@ static void step(void) {
     // The old head cell joins the body: a tube from where the head came in to
     // where it goes now.
     uint8_t tile = piece(move_dir ^ 1, noodle_dir);
-    head_turned = tile == T_BEND;
+    head_turned = tile >= T_BEND_H;  // T_BEND_H, T_BEND_V
     put(head_x, head_y, tile, piece_attr);
     move_dir = noodle_dir;
     head_bx = head_x - x;

@@ -98,7 +98,7 @@ const wallCorner = [  // where the left wall meets the near wall
 // --- 8x8: the noodle (1 outline, 2 scales, 3 belly and eyes) and its food ---
 // The body fills its cells edge to edge, one segment a cell: straight pieces with
 // a divider line on one edge only (left across, top down), so the segments run
-// into each other, and a bend that src/play.c flips for the other three corners.
+// into each other, and bends (src/play.c turns them to fit).
 // The head and tail tip are their own pieces, open where they meet the body, so
 // they slide out of it with no seam.
 const segment = [  // left to right; the divider on the left
@@ -111,14 +111,18 @@ const segment = [  // left to right; the divider on the left
   '12222222',
   '11111111',
 ];
-const bend = [  // from the left, turning down
-  '1111111.',
-  '22222221',
-  '22322221',
-  '22222321',
-  '22222221',
-  '23222221',
-  '22222221',
+// A bend, its divider on the tail side like a segment's: from the left (the
+// divider down its left edge), turning down, the outside corner rounded. Flips
+// can't move the divider to another edge, so its rotation (transposed: from the
+// top, turning right) is a second tile; flips of the two give all eight turns.
+const bend = [
+  '11111...',
+  '1222211.',
+  '12232221',
+  '12222221',
+  '12222321',
+  '12322221',
+  '12222221',
   '12222221',
 ];
 const headRight = [  // open at the back (left)
@@ -161,7 +165,7 @@ const food = [
 export const BOARD_TILES = [
   ...quarters(grass, 'grass'),  // T_GRASS: 4 tiles
   wallCap, wallEdge, wallFace, wallBottom, wallCorner,  // T_WALL_CAP ... T_WALL_CORNER
-  segment, transpose(segment), bend, food,  // T_TUBE_H, T_TUBE_V, T_BEND, T_FOOD
+  segment, transpose(segment), bend, transpose(bend), food,  // T_TUBE_H, T_TUBE_V, T_BEND_H, T_BEND_V, T_FOOD
 ];
 
 // The noodle's moving ends as sprites (src/play.c slides them between cells):
