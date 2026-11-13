@@ -25,7 +25,9 @@ engine. Proposals, not decisions: change freely.
   switch could press when any of its 4 cells is under the body, or need all 4
   (a "weighted" switch for free). Pushable blocks move a block (2 cells) at a time.
 - **Smooth movement** (done 2026-11-12): the head and tail tip are sprites that slide
-  between cells every frame at an even pace (an eased slide pulsed, stop-go), while the
+  between cells. The noodle moves on a slow beat, like a roguelike's turns (decided
+  2026-11-12): each move is a 6-frame eased step (1, 1, 2, 2, 1, 1 px), then a rest
+  until the next beat (16 frames at first, 8 at top speed), while the
   body behind them stays background tiles that change once per step. The cell the head
   is entering stays floor until the next step makes it body. The body is one tube
   (straight pieces and a flipped bend); the head and tip are open where they meet it,

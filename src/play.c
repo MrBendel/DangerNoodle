@@ -32,8 +32,8 @@
 #define START_X 7
 #define START_Y 8
 #define START_LEN 3
-#define START_DELAY 10  // frames a move at first
-#define MIN_DELAY 4
+#define START_DELAY 16  // frames a move at first: a slow, steady beat
+#define MIN_DELAY 8
 #define FOOD_PER_SPEEDUP 4
 #define DEATH_FRAMES 60  // the crash shows this long before the game over screen
 
@@ -59,9 +59,11 @@ uint8_t noodle_parked;  // up against its own body, waiting for a way out
 #define S_TAIL_D 8
 #define S_TAIL_U 10
 // The slide: frames since the last move (up to step_delay), and how far (px)
-// the ends have moved by then: an even pace, so the noodle flows.
+// the ends have moved by then. Each move is a step on a beat, like a roguelike's
+// turns: the ends ease in and out of the move over its first 6 frames, then
+// rest until the next (MIN_DELAY keeps a rest even at top speed).
 uint8_t slide_k;
-uint8_t slide_px[START_DELAY + 1];
+static const uint8_t slide_px[START_DELAY + 1] = {0, 1, 2, 4, 6, 7, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8};
 // Where each end came from, as a step back from its cell (-1, 0, 1).
 int8_t head_bx, head_by, tail_bx, tail_by;
 uint8_t move_dir;  // the way the head went on its last move
@@ -91,13 +93,6 @@ static void put(uint8_t x, uint8_t y, uint8_t tile, uint8_t attr) {
     uint8_t *t = gfx_strip_attr(x, y, 0, 1);
     t[0] = tile;
     t[STRIP_MAX_LEN] = attr;
-}
-
-// The slide for the current speed: 8k/d px after k frames, rounded. Only when
-// the speed changes, so the division is fine.
-static void slide_table(void) {
-    uint8_t d = step_delay;
-    for (uint8_t k = 0; k <= d; k++) slide_px[k] = (uint8_t)((k * 8 + (d >> 1)) / d);
 }
 
 // The body piece for a cell whose neighbours along the body are directions a
@@ -208,7 +203,6 @@ void play_enter(void) BANKED {
     dir_queued = 0;
     noodle_parked = 0;
     step_delay = step_timer = START_DELAY;
-    slide_table();
     slide_k = START_DELAY;  // at rest
     head_bx = head_by = tail_bx = tail_by = 0;
     noodle_dir = move_dir = DIR_RIGHT;
@@ -349,10 +343,7 @@ static void step(void) {
         if (score > best_score) best_score = score;
         if (++food_eaten == FOOD_PER_SPEEDUP) {
             food_eaten = 0;
-            if (step_delay > MIN_DELAY) {
-                step_delay--;
-                slide_table();
-            }
+            if (step_delay > MIN_DELAY) step_delay--;
         }
         sfx_play(SFX_EAT);
         place_food(0);

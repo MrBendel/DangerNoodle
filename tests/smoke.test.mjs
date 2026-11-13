@@ -147,7 +147,7 @@ function grow(emu, n) {
 /** Tap a turn, then make n moves. */
 const turn = (emu, dir, n = 1) => moves(emu.tap(dir), n);
 
-test('the head slides between cells at an even pace', () => {
+test('each move is an eased step on a beat, then a rest', () => {
   const emu = startGame();
   moves(emu);
   // The head sprite's x (shadow OAM, sprite 0) on each frame until the next move.
@@ -158,8 +158,10 @@ test('the head slides between cells at an even pace', () => {
   xs.pop();  // the frame of the next move
   const deltas = xs.slice(1).map((x, i) => x - xs[i]);
   assert.ok(deltas.every((d) => d >= 0) && xs.at(-1) - xs[0] <= 8, `forward, at most a cell: ${xs}`);
-  assert.ok(deltas.filter((d) => d > 0).length >= 4, `moves on most frames: ${xs}`);
-  assert.ok(Math.max(...deltas) - Math.min(...deltas) <= 1, `an even pace: ${xs}`);
+  const moving = deltas.filter((d) => d > 0);
+  assert.ok(moving.length <= 6, `the step takes a few frames: ${xs}`);
+  assert.ok(deltas.slice(-6).every((d) => d === 0), `then a rest: ${xs}`);
+  assert.ok(Math.max(...moving) > moving[0] && Math.max(...moving) > moving.at(-1), `eased in and out: ${xs}`);
 });
 
 test('round a bend, the head starts half out of it', () => {
