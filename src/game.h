@@ -24,20 +24,49 @@
 #define ROOM_BW_MAX 14
 #define ROOM_BH_MAX 14
 #define ROOM_TH_MAX (3 + 2 * ROOM_BH_MAX)
-#define ROOM_COUNT 2  // 0: one screen; 1: bigger, scrolls both ways
+#define ROOM_COUNT 10  // demo rooms (room.c): 1 is bigger and scrolls
 extern uint8_t room_id;           // the room to play (tests set it before START)
 extern uint8_t room_bw, room_bh;  // its size in blocks
 extern uint8_t room_tw, room_th;  // ... and in cells, walls included
 extern uint8_t room_x1, room_y1;  // the last open column and row
-// A room's shape: stones in the floor (cells). Cover them all with the body at
-// once and the door in the back wall (row DOOR_Y, cells door_x and door_x + 1)
-// opens onto the next room.
-#define SHAPE_MAX 16
+// How a room starts: the head's cell (heading right, the body behind it), the
+// length it grows out to, the length its puzzle needs (the HUD shows it), and
+// segments a food is worth (0: no food).
+extern uint8_t room_start_x, room_start_y, room_start_len, room_need, room_food;
+
+// Switches: each is a set of cells the body presses. A shape is stones (8x8,
+// all at once); a button is a 16x16 block (any of its cells, or all 4 if heavy).
+// When every switch is down at once (and every enemy eaten) the door in the
+// back wall (row DOOR_Y, cells door_x and door_x + 1) opens onto the next room.
+#define SW_MAX 8
+#define SW_CELLS_MAX 40
+#define SW_LATCH 1    // stays down once pressed
+#define SW_TIMED 2    // stays down a while after the body leaves
+#define SW_HEAVY 4    // needs all 4 cells: fold over yourself
+#define SW_HEAD 8     // only the head presses it
+#define SW_TAIL 16    // only the tail tip presses it
+#define SW_STONES 32  // a shape's stones, not a button
+#define SW_ORDER(n) ((uint8_t)((n) << 6))  // latched, but only pressed in turn (1-3)
 #define DOOR_Y 1
-extern uint8_t shape_n, shape_x[SHAPE_MAX], shape_y[SHAPE_MAX];
+extern uint8_t sw_count;
+extern uint8_t sw_flags[SW_MAX], sw_need[SW_MAX], sw_tile[SW_MAX];
+extern uint8_t sw_first[SW_MAX], sw_n[SW_MAX];  // its cells in sw_cx/sw_cy
+extern uint8_t sw_cx[SW_CELLS_MAX], sw_cy[SW_CELLS_MAX];
+extern uint8_t sw_cover[SW_MAX];  // its cells under the body now
+extern uint8_t sw_down[SW_MAX];
 extern uint8_t door_x;
-extern uint8_t marks_covered;  // stones under the body now
 extern uint8_t door_open;
+
+// Enemies: beetles on the block grid. Coil round one (a ring of body it can't
+// get out of) to crack its shell, then eat it before it hardens again; it bites
+// a segment off you on its own clock if you're next to it.
+#define ENEMY_MAX 2
+#define EN_NONE 0
+#define EN_ARMORED 1
+#define EN_CRACKED 2
+extern uint8_t en_count;  // in the room at the start
+extern uint8_t en_state[ENEMY_MAX];
+extern uint8_t en_cx[ENEMY_MAX], en_cy[ENEMY_MAX];  // its top-left cell
 
 #define DIR_RIGHT 0
 #define DIR_LEFT 1

@@ -79,6 +79,20 @@ engine. Proposals, not decisions: change freely.
   the body is kept per move (head in, tail out), so the check is one compare.
   The door is latched; the HUD shows `LEN 03/08` (length / length the shape needs).
   Room 1 is a ring of 8, room 0 an S-curve of 11 (`src/room.c`).
+- **Demo rooms (2026-11-13):** ten rooms in `src/room.c`, one puzzle or enemy each,
+  picked with LEFT/RIGHT on the title (SELECT skips ahead in play). A room is a
+  size, a start (the noodle grows out to the room's start length as it moves), the
+  length it needs, food's worth, and objects: stones, 16x16 buttons and beetles.
+  - **Switches** are one system: a set of cells and a count of them under the body,
+    kept per move. Flags make the kinds: latched, timed (down 4 s after the body
+    leaves), heavy (all 4 cells: fold over yourself), head-only, tail-only, and in
+    turn (out of turn, every turn button pops up). The door opens when all are
+    down at once and every beetle is eaten.
+  - **Beetles** step a block every 40 frames on their own clock and bite the tail
+    off every 3 s when the body is beside them (red first, standing still).
+    Running into one parks you. Coiling one (its reachable floor is at most 6
+    cells: a flood fill of a few cells per move) cracks it for 4 s; the head eats
+    it for 3 segments.
 - **Room data:** RogueGB's chunk format and editor (`web/chunks.html`, `tools/chunks.mjs`)
   can be adapted for hand-built rooms: walls, water, switches, doors, spawns.
 

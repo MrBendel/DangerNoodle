@@ -22,6 +22,13 @@
 #define T_MARK (SCENE_TILES + 14)       // a stone of the room's shape
 #define T_DOOR_SHUT (SCENE_TILES + 15)  // the door's left half (flipped: right)
 #define T_DOOR_OPEN (SCENE_TILES + 16)
+#define T_BUTTON (SCENE_TILES + 17)     // 16x16 buttons, 4 tiles each, by BUTTON_*
+#define BUTTON_PLAIN 0
+#define BUTTON_1 1  // 2 and 3 follow
+#define BUTTON_HEAD 4
+#define BUTTON_TAIL 5
+#define BUTTON_HEAVY 6
+#define BUTTON_TIMED 7
 // Background tile attributes (VRAM bank 1): bits 0-2 palette, 5 x flip, 6 y flip.
 #define A_FLIPX 0x20
 #define A_FLIPY 0x40
@@ -32,6 +39,9 @@
 
 // Set room_bw ... room_y1 from room_id.
 void room_load(void) BANKED;
+// Room id's name ("4 FOUR CORNERS"), into buf (RAM, ROOM_NAME_MAX + 1 bytes).
+#define ROOM_NAME_MAX 18
+void room_name(uint8_t id, char *buf) BANKED;
 // Draw the whole room into the background map (display off).
 void room_draw(void) BANKED;
 

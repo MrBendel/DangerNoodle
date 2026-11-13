@@ -36,6 +36,11 @@ static const uint16_t food[4] = {GRASS, C(72, 16, 24), C(216, 48, 48), C(255, 20
 // The stones: grey, and gold once the shape is made.
 static const uint16_t marks[4] = {GRASS, C(200, 196, 168), C(120, 116, 96), C(64, 60, 48)};
 static const uint16_t marks_lit[4] = {GRASS, C(255, 240, 160), C(255, 160, 40), C(136, 80, 24)};
+// The beetle (sprites: color 0 is see-through): a blue shell, soft pink once
+// cracked, red as it's about to bite.
+static const uint16_t beetle[4] = {0, C(160, 216, 248), C(48, 104, 184), C(16, 24, 48)};
+static const uint16_t beetle_soft[4] = {0, C(255, 228, 208), C(240, 136, 136), C(88, 24, 40)};
+static const uint16_t beetle_angry[4] = {0, C(255, 208, 128), C(232, 64, 40), C(64, 16, 16)};
 // The HUD row (the GB Studio font): dark band, light letters.
 static const uint16_t hud[4] = {C(24, 40, 24), C(24, 40, 24), C(136, 192, 88), C(232, 244, 216)};
 
@@ -46,6 +51,10 @@ void palettes_play(void) BANKED {
     set_bg(PLAY_PAL_FOOD, food);
     set_bg(PLAY_PAL_TEXT, hud);
     set_bg(PLAY_PAL_MARK, marks);
+    set_bg(PLAY_PAL_LIT, marks_lit);
+    memcpy(&pal_base_obj[SPR_PAL_BEETLE << 2], beetle, 8);
+    memcpy(&pal_base_obj[SPR_PAL_SOFT << 2], beetle_soft, 8);
+    memcpy(&pal_base_obj[SPR_PAL_ANGRY << 2], beetle_angry, 8);
     set_bg(BG_PAL_UI, hud);  // the window: the HUD
     // The head and tail sprites (color 0 is transparent on sprites).
     memcpy(&pal_base_obj[SPR_PAL_NOODLE << 2], noodle, 8);

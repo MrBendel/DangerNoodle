@@ -1,10 +1,13 @@
 {
-  "title": "cab65881",
-  "play": "e65a5d99",
+  "title": "054ea330",
+  "play": "365e1b00",
   "paused": "732429c2",
   "game-over": "2b47ec5d",
   "play-big-room": "eb56e2ee",
   "play-corners": "78353273",
   "play-shape-made": "99056430",
-  "play-next-room": "5f9d6036"
+  "play-next-room": "9aa10f88",
+  "title-room-pick": "c53e23a5",
+  "room-beetle-cracked": "5ef9a382",
+  "room-four-corners": "eafb50b3"
 }

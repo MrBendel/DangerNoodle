@@ -196,12 +196,48 @@ const doorOpen = [
   '33333333',
 ];
 
+// Buttons: 16x16 stones raised from the floor (1 face, 2 glyph and shade, 3
+// rim), on the stones' palette (lit: pressed). A glyph in the middle says what
+// kind: src/room.c picks one per button.
+const buttonBase = [
+  '................',
+  '..333333333333..',
+  '.31111111111113.',
+  '.31111111111123.',
+  '.31111111111123.',
+  '.31111111111123.',
+  '.31111111111123.',
+  '.31111111111123.',
+  '.31111111111123.',
+  '.31111111111123.',
+  '.31111111111123.',
+  '.31111111111123.',
+  '.31111111111123.',
+  '.31222222222223.',
+  '..333333333333..',
+  '................',
+];
+const glyphs = {
+  plain: ['......', '..22..', '.2..2.', '.2..2.', '..22..', '......'],
+  one: ['..22..', '.222..', '..22..', '..22..', '..22..', '.2222.'],
+  two: ['.222..', '2..22.', '...22.', '..22..', '.22...', '22222.'],
+  three: ['2222..', '...22.', '.222..', '...22.', '...22.', '2222..'],
+  head: ['.2222.', '232232', '222222', '222222', '.2222.', '..22..'],
+  tail: ['....22', '...222', '..222.', '.222..', '222...', '22....'],
+  heavy: ['22..22', '22..22', '......', '......', '22..22', '22..22'],
+  timed: ['222222', '.2222.', '..22..', '..22..', '.2222.', '222222'],
+};
+const button = (g) => buttonBase.map((row, y) =>
+  y < 5 || y > 10 ? row : row.slice(0, 5) + [...g[y - 5]].map((c, i) => (c === '.' ? row[5 + i] : c)).join('') + row.slice(11));
+
 // Order matters: src/room.h names them (T_GRASS ...).
 export const BOARD_TILES = [
   ...quarters(grass, 'grass'),  // T_GRASS: 4 tiles
   wallCap, wallEdge, wallFace, wallBottom, wallCorner,  // T_WALL_CAP ... T_WALL_CORNER
   segment, transpose(segment), bend, transpose(bend), food,  // T_TUBE_H, T_TUBE_V, T_BEND_H, T_BEND_V, T_FOOD
   mark, doorShut, doorOpen,  // T_MARK, T_DOOR_SHUT, T_DOOR_OPEN
+  // T_BUTTON: 4 tiles each (TL TR BL BR), in BUTTON_* order (src/room.h)
+  ...['plain', 'one', 'two', 'three', 'head', 'tail', 'heavy', 'timed'].flatMap((g) => quarters(button(glyphs[g]), g)),
 ];
 
 // The noodle's moving ends as sprites (src/play.c slides them between cells):
@@ -210,6 +246,46 @@ export const BOARD_TILES = [
 // land 8 px low), so up-facing pieces are their own tiles; left is a flip of right.
 // Order matters: src/play.c names them (S_HEAD_R ...).
 const blank = Array(8).fill('........');
+// The beetle, 16x16 from above: its left column (top, then bottom); the right is
+// a flip. Two steps of its legs, and cracked (its shell split, soft inside).
+// Sprite colors: 1 shine, 2 shell, 3 outline and legs.
+const beetleA = [
+  '....3...',
+  '.....3..',
+  '....3333',
+  '...32222',
+  '.3.33333',
+  '..311113',
+  '.3122223',
+  '3.122223',
+  '..122223',
+  '.3122223',
+  '3.122223',
+  '..122223',
+  '..312223',
+  '...33333',
+  '....3...',
+  '........',
+];
+const beetleB = beetleA.map((r, y) => ([4, 7, 10].includes(y) ? r.replace(/^\.3|^3\./, (m) => m[1] + m[0]) : r));
+const beetleCracked = [
+  '....3...',
+  '.....3..',
+  '....3333',
+  '...32222',
+  '.3.33333',
+  '..311.3.',
+  '.3122.3.',
+  '3.1223..',
+  '..12.3..',
+  '.3122.3.',
+  '3.1223..',
+  '..123...',
+  '..3122.3',
+  '...33333',
+  '....3...',
+  '........',
+];
 export const NOODLE_SPRITE_TILES = [
   headRight, blank,                    // S_HEAD_R (left: flipped in X)
   transpose(headRight), blank,         // S_HEAD_D
@@ -217,6 +293,9 @@ export const NOODLE_SPRITE_TILES = [
   tailRight, blank,                    // S_TAIL_R
   transpose(tailRight), blank,         // S_TAIL_D
   flipY(transpose(tailRight)), blank,  // S_TAIL_U
+  beetleA.slice(0, 8), beetleA.slice(8),              // S_BEETLE
+  beetleB.slice(0, 8), beetleB.slice(8),              // S_BEETLE + 2: its other step
+  beetleCracked.slice(0, 8), beetleCracked.slice(8),  // S_BEETLE + 4
 ];
 
 /** 8 strings -> 16 bytes of 2bpp. */

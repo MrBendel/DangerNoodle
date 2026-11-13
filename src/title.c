@@ -6,11 +6,21 @@
 #include "input.h"
 #include "gfx.h"
 #include "game.h"
+#include "room.h"
 #include "scene_text.h"
 
 #define BLINK_MASK 0x20  // "PRESS START" blinks every 32 frames (its palette's ink)
 
 uint8_t title_timer;
+uint8_t title_name_tile;  // the room's name is drawn from here on
+
+// The room to play, picked with LEFT and RIGHT.
+static void draw_room(void) {
+    char name[ROOM_NAME_MAX + 1];
+    room_name(room_id, name);
+    fill_bkg_rect(0, 13, SCREEN_TW, 1, 0);
+    text_draw(FONT_COMPACT, TEXT_CENTER, 13, name, title_name_tile, TITLE_PAL_TEXT);
+}
 
 // The prompt blinks by its palette: ink, or the background's color.
 static void prompt_ink(uint8_t on) {
@@ -28,12 +38,22 @@ void title_enter(void) BANKED {
     t += draw(FONT_DISPLAY, TEXT_CENTER, 4, "DANGER NOODLE", t, TITLE_PAL_GOLD);
     t += draw(FONT_COMPACT, TEXT_CENTER, 7, "a very long snake", t, TITLE_PAL_TEXT);
     t += draw(FONT_COMPACT, TEXT_CENTER, 11, "PRESS START", t, TITLE_PAL_PROMPT);
-    draw(FONT_COMPACT, 4, 16, "v0.0", t, TITLE_PAL_HINT);
+    t += draw(FONT_COMPACT, TEXT_CENTER, 14, "LEFT, RIGHT: ROOM", t, TITLE_PAL_HINT);
+    t += draw(FONT_COMPACT, 4, 16, "v0.0", t, TITLE_PAL_HINT);
+    title_name_tile = t;
+    if (room_id >= ROOM_COUNT) room_id = 0;
+    draw_room();
 }
 
 void title_update(void) BANKED {
     title_timer++;
     if (!(title_timer & (BLINK_MASK - 1))) prompt_ink(!(title_timer & BLINK_MASK));
+    if (joy_pressed & (J_LEFT | J_RIGHT)) {
+        if (joy_pressed & J_RIGHT) room_id = room_id + 1 == ROOM_COUNT ? 0 : room_id + 1;
+        else room_id = room_id ? room_id - 1 : ROOM_COUNT - 1;
+        sfx_play(SFX_TURN);
+        draw_room();
+    }
     if (joy_pressed & (J_START | J_A)) {
         // The frame START lands on seeds the game: different every time for a
         // player, reproducible for a replay. Tests can set test_seed instead.
