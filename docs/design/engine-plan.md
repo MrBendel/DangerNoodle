@@ -29,10 +29,12 @@ engine. Proposals, not decisions: change freely.
   2026-11-12): each move is a 6-frame eased step (1, 1, 2, 2, 1, 1 px), then a rest
   until the next beat (16 frames at first, 8 at top speed), while the
   body behind them stays background tiles that change once per step. The cell the head
-  is entering stays floor until the next step makes it body. The body is one tube
-  (straight pieces and a flipped bend); the head and tip are open where they meet it,
+  is entering stays floor until the next step makes it body. The body fills its cells
+  edge to edge, a segment a cell: straight pieces with a divider on the tail side only
+  (flipped to suit), so they run into each other, and a flipped bend. The head and tip
+  are their own pieces, open where they meet it,
   so they slide out of it with no seam. The tip has its own sprite palette whose
-  color 3 is grass, masking the tube under its taper; into a bend it steps at once,
+  color 3 is grass, masking the body under its taper; into a bend it steps at once,
   since a straight tip can't follow a curve inside one cell. Round a bend the head starts half
   out of it and goes at half pace: at the old cell, facing the new way, it would
   cover the bend and stick out past the body. In 8×16 sprite mode a

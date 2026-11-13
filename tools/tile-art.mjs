@@ -96,51 +96,52 @@ const wallCorner = [  // where the left wall meets the near wall
 ];
 
 // --- 8x8: the noodle (1 outline, 2 scales, 3 belly and eyes) and its food ---
-// The body is one tube, 6 px thick (rows 1-6 across, columns 1-6 down): straight
-// pieces, and a bend that src/play.c flips for the other three corners. The head
-// and tail tip are open where they meet the tube, so they slide out of it with
-// no seam.
-const tube = [  // left to right
-  '........',
+// The body fills its cells edge to edge, one segment a cell: straight pieces with
+// a divider line on one edge only (left across, top down), so the segments run
+// into each other, and a bend that src/play.c flips for the other three corners.
+// The head and tail tip are their own pieces, open where they meet the body, so
+// they slide out of it with no seam.
+const segment = [  // left to right; the divider on the left
   '11111111',
-  '22232222',
-  '22222223',
-  '23222222',
-  '22223222',
+  '12222222',
+  '12232222',
+  '12222232',
+  '12322222',
+  '12222322',
+  '12222222',
   '11111111',
-  '........',
 ];
 const bend = [  // from the left, turning down
-  '........',
-  '11111...',
-  '222221..',
-  '2232221.',
-  '2222221.',
-  '2222321.',
-  '1122221.',
-  '.122221.',
+  '1111111.',
+  '22222221',
+  '22322221',
+  '22222321',
+  '22222221',
+  '23222221',
+  '22222221',
+  '12222221',
 ];
 const headRight = [  // open at the back (left)
-  '........',
   '111111..',
-  '2231321.',
+  '2222221.',
+  '22312221',
   '22222221',
   '22222221',
-  '2231321.',
+  '22312221',
+  '2222221.',
   '111111..',
-  '........',
 ];
 // The tip, its body going on to the right. Its own palette (play.c): 3 is grass,
-// masking the tube it slides over so it keeps its taper.
+// masking the body it slides over so it keeps its taper.
 const tailRight = [
-  '........',
   '33331111',
   '33112222',
   '31222222',
+  '12222222',
+  '12222222',
   '31222222',
   '33112222',
   '33331111',
-  '........',
 ];
 /** Upside down: a down-facing piece faces up (8x16 sprites can't flip in Y alone). */
 const flipY = (t) => [...t].reverse();
@@ -160,7 +161,7 @@ const food = [
 export const BOARD_TILES = [
   ...quarters(grass, 'grass'),  // T_GRASS: 4 tiles
   wallCap, wallEdge, wallFace, wallBottom, wallCorner,  // T_WALL_CAP ... T_WALL_CORNER
-  tube, transpose(tube), bend, food,  // T_TUBE_H, T_TUBE_V, T_BEND, T_FOOD
+  segment, transpose(segment), bend, food,  // T_TUBE_H, T_TUBE_V, T_BEND, T_FOOD
 ];
 
 // The noodle's moving ends as sprites (src/play.c slides them between cells):

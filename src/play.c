@@ -96,11 +96,18 @@ static void put(uint8_t x, uint8_t y, uint8_t tile, uint8_t attr) {
 }
 
 // The body piece for a cell whose neighbours along the body are directions a
-// and b: a straight tube, or the bend (left to down) flipped round.
+// (toward the tail) and b (toward the head): a straight segment, its divider
+// flipped to the tail side so it runs on into the next one toward the head, or
+// the bend (left to down) flipped round.
 static uint8_t piece_attr;
 static uint8_t piece(uint8_t a, uint8_t b) {
     piece_attr = PLAY_PAL_NOODLE;
-    if ((a ^ 1) == b) return a <= DIR_LEFT ? T_TUBE_H : T_TUBE_V;
+    if ((a ^ 1) == b) {
+        // Drawn with the divider on the left (across) or the top (down).
+        if (a == DIR_RIGHT) piece_attr |= A_FLIPX;
+        if (a == DIR_DOWN) piece_attr |= A_FLIPY;
+        return a <= DIR_LEFT ? T_TUBE_H : T_TUBE_V;
+    }
     if (a == DIR_RIGHT || b == DIR_RIGHT) piece_attr |= A_FLIPX;
     if (a == DIR_UP || b == DIR_UP) piece_attr |= A_FLIPY;
     return T_BEND;
