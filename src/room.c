@@ -13,7 +13,15 @@ static const uint8_t rooms[ROOM_COUNT][2] = {
     {14, 12},  // 256x216 px: scrolls both ways
 };
 
+// Their shapes: a count, then cells (x, y). Room 1 (the first) is a ring, a
+// tight coil of 8; room 0 an S-curve of 11.
+static const uint8_t shape0[] = {11, 12, 3, 13, 3, 14, 3, 12, 4, 12, 5, 13, 5, 14, 5, 14, 6, 12, 7, 13, 7, 14, 7};
+static const uint8_t shape1[] = {8, 12, 4, 13, 4, 14, 4, 12, 5, 14, 5, 12, 6, 13, 6, 14, 6};
+static const uint8_t *const shapes[ROOM_COUNT] = {shape0, shape1};
+
 uint8_t room_id = 1;
+uint8_t shape_n, shape_x[SHAPE_MAX], shape_y[SHAPE_MAX];
+uint8_t door_x;
 uint8_t room_bw, room_bh, room_tw, room_th, room_x1, room_y1;
 int16_t cam_fx, cam_fy;
 uint8_t cam_max_x, cam_max_y;  // the largest scroll that keeps the view in the room
@@ -33,6 +41,14 @@ void room_load(void) BANKED {
     room_y1 = room_th - 2;
     cam_max_x = (uint8_t)(((uint16_t)room_tw << 3) - VIEW_W);
     cam_max_y = (uint8_t)(((uint16_t)room_th << 3) - VIEW_H);
+    // The door: the middle block of the back wall (left of middle if even).
+    door_x = ROOM_X0 + (((room_bw - 1) >> 1) << 1);
+    const uint8_t *s = shapes[room_id];
+    shape_n = *s++;
+    for (uint8_t i = 0; i < shape_n; i++) {
+        shape_x[i] = *s++;
+        shape_y[i] = *s++;
+    }
 }
 
 void room_draw(void) BANKED {
@@ -54,6 +70,19 @@ void room_draw(void) BANKED {
     static const uint8_t grass[4] = {T_GRASS, T_GRASS + 1, T_GRASS + 2, T_GRASS + 3};
     for (uint8_t y = ROOM_Y0; y < B; y += 2)
         for (uint8_t x = ROOM_X0; x < W - 2; x += 2) set_bkg_tiles(x, y, 2, 2, grass);
+    // The shape's stones, and the door, shut.
+    for (uint8_t i = 0; i < shape_n; i++) {
+        VBK_REG = 1;
+        set_bkg_tile_xy(shape_x[i], shape_y[i], PLAY_PAL_MARK);
+        VBK_REG = 0;
+        set_bkg_tile_xy(shape_x[i], shape_y[i], T_MARK);
+    }
+    VBK_REG = 1;
+    set_bkg_tile_xy(door_x, DOOR_Y, PLAY_PAL_WALL);
+    set_bkg_tile_xy(door_x + 1, DOOR_Y, PLAY_PAL_WALL | A_FLIPX);
+    VBK_REG = 0;
+    set_bkg_tile_xy(door_x, DOOR_Y, T_DOOR_SHUT);
+    set_bkg_tile_xy(door_x + 1, DOOR_Y, T_DOOR_SHUT);
 }
 
 // Where the camera wants to be on one axis (1/16 px): the head's cell centred in

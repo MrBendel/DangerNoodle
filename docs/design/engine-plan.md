@@ -73,6 +73,12 @@ engine. Proposals, not decisions: change freely.
   "Tight loop" vs "loose circle" is a limit on the enclosed area.
 - **Switches** are cells under the body: the room's switch list is checked against the
   cells that changed this move (head entering, tail leaving), not the whole body.
+- **Shapes (first version, 2026-11-12):** stones set in the floor (8x8 cells, their
+  own palette) trace a shape; when the body covers every stone at once they glow
+  and the door in the back wall opens onto the next room. A count of stones under
+  the body is kept per move (head in, tail out), so the check is one compare.
+  The door is latched; the HUD shows `LEN 03/08` (length / length the shape needs).
+  Room 1 is a ring of 8, room 0 an S-curve of 11 (`src/room.c`).
 - **Room data:** RogueGB's chunk format and editor (`web/chunks.html`, `tools/chunks.mjs`)
   can be adapted for hand-built rooms: walls, water, switches, doors, spawns.
 

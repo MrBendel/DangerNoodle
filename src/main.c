@@ -18,6 +18,11 @@ uint8_t game_state = STATE_NONE;
 uint8_t next_state = STATE_TITLE;
 uint16_t frame_count;
 uint8_t in_transition;  // 1 while fading between scenes
+uint8_t state_reenter;  // state_restart: enter the same scene again
+
+void state_restart(void) {
+    state_reenter = 1;
+}
 
 void state_change(uint8_t state) {
     next_state = state;
@@ -62,7 +67,10 @@ void main(void) {
 
     while (1) {
         input_update();
-        if (next_state != game_state) enter_next_state();
+        if (next_state != game_state || state_reenter) {
+            state_reenter = 0;
+            enter_next_state();
+        }
 
         switch (game_state) {
             case STATE_TITLE: title_update(); break;

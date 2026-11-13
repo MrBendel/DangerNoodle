@@ -1,8 +1,10 @@
 {
   "title": "cab65881",
-  "play": "652b7790",
-  "paused": "1b326078",
+  "play": "e65a5d99",
+  "paused": "732429c2",
   "game-over": "2b47ec5d",
-  "play-big-room": "8b80b24f",
-  "play-corners": "8b797a15"
+  "play-big-room": "eb56e2ee",
+  "play-corners": "78353273",
+  "play-shape-made": "99056430",
+  "play-next-room": "5f9d6036"
 }

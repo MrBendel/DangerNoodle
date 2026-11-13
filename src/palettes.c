@@ -33,6 +33,9 @@ static const uint16_t board[4] = {GRASS, C(112, 168, 72), C(72, 112, 48), C(24, 
 static const uint16_t walls[4] = {GRASS, C(184, 112, 72), C(128, 72, 48), C(48, 28, 24)};
 static const uint16_t noodle[4] = {GRASS, C(40, 32, 16), C(232, 184, 48), C(252, 244, 208)};
 static const uint16_t food[4] = {GRASS, C(72, 16, 24), C(216, 48, 48), C(255, 208, 200)};
+// The stones: grey, and gold once the shape is made.
+static const uint16_t marks[4] = {GRASS, C(200, 196, 168), C(120, 116, 96), C(64, 60, 48)};
+static const uint16_t marks_lit[4] = {GRASS, C(255, 240, 160), C(255, 160, 40), C(136, 80, 24)};
 // The HUD row (the GB Studio font): dark band, light letters.
 static const uint16_t hud[4] = {C(24, 40, 24), C(24, 40, 24), C(136, 192, 88), C(232, 244, 216)};
 
@@ -42,11 +45,16 @@ void palettes_play(void) BANKED {
     set_bg(PLAY_PAL_NOODLE, noodle);
     set_bg(PLAY_PAL_FOOD, food);
     set_bg(PLAY_PAL_TEXT, hud);
+    set_bg(PLAY_PAL_MARK, marks);
     set_bg(BG_PAL_UI, hud);  // the window: the HUD
     // The head and tail sprites (color 0 is transparent on sprites).
     memcpy(&pal_base_obj[SPR_PAL_NOODLE << 2], noodle, 8);
     memcpy(&pal_base_obj[SPR_PAL_TAIL << 2], noodle, 6);
     pal_base_obj[(SPR_PAL_TAIL << 2) + 3] = GRASS;
+}
+
+void palettes_marks_lit(void) BANKED {
+    set_bg(PLAY_PAL_MARK, marks_lit);
 }
 
 // Menus: the title's colors for the compact and display fonts.

@@ -161,11 +161,47 @@ const food = [
   '..1111..',
 ];
 
+// A stone set in the floor: a room's shape is drawn in them, for the noodle to
+// cover (1 face, 2 rune, 3 rim). Its own palette: src/play.c lights it up.
+const mark = [
+  '........',
+  '.333333.',
+  '.311113.',
+  '.312213.',
+  '.312213.',
+  '.311113.',
+  '.333333.',
+  '........',
+];
+// The door in the back wall, its left half (the right is flipped): a barred
+// gate under a lintel, and the dark way through once it opens.
+const doorShut = [
+  '22222222',
+  '13313313',
+  '13313313',
+  '23323323',
+  '13313313',
+  '13313313',
+  '13313313',
+  '33333333',
+];
+const doorOpen = [
+  '22222222',
+  '33333333',
+  '33333333',
+  '33333333',
+  '33333333',
+  '33333333',
+  '33333333',
+  '33333333',
+];
+
 // Order matters: src/room.h names them (T_GRASS ...).
 export const BOARD_TILES = [
   ...quarters(grass, 'grass'),  // T_GRASS: 4 tiles
   wallCap, wallEdge, wallFace, wallBottom, wallCorner,  // T_WALL_CAP ... T_WALL_CORNER
   segment, transpose(segment), bend, transpose(bend), food,  // T_TUBE_H, T_TUBE_V, T_BEND_H, T_BEND_V, T_FOOD
+  mark, doorShut, doorOpen,  // T_MARK, T_DOOR_SHUT, T_DOOR_OPEN
 ];
 
 // The noodle's moving ends as sprites (src/play.c slides them between cells):

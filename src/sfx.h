@@ -14,7 +14,8 @@
 #define SFX_EAT 1    // the noodle eats
 #define SFX_TURN 2   // a soft tick when the noodle turns
 #define SFX_DEATH 3  // the noodle crashes
-#define SFX_COUNT 4
+#define SFX_UNLOCK 4  // a shape is made: the door opens
+#define SFX_COUNT 5
 
 // --- watchable state ---
 extern uint8_t sfx_last;      // the last sound started (0xFF: none yet)

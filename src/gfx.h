@@ -125,7 +125,10 @@ void palettes_title(void) BANKED;
 #define PLAY_PAL_NOODLE 2
 #define PLAY_PAL_FOOD 3
 #define PLAY_PAL_TEXT 4  // the pause banner (the HUD itself uses BG_PAL_UI)
+#define PLAY_PAL_MARK 5  // the stones of a room's shape
 void palettes_play(void) BANKED;
+// The stones light up: the shape is made and the door opens.
+void palettes_marks_lit(void) BANKED;
 // Menus (game over): the title's colors.
 void palettes_menu(void) BANKED;
 

@@ -24,6 +24,8 @@ extern uint16_t frame_count;
 
 // Request a transition. It happens at the start of the next frame, with a fade.
 void state_change(uint8_t state);
+// Run the current scene's enter() again, with the same fade (the next room).
+void state_restart(void);
 
 // End the frame: count it and wait for vblank. Anything that spends frames
 // outside the main loop (fades, etc.) should call this instead of vsync().

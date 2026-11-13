@@ -29,6 +29,15 @@ extern uint8_t room_id;           // the room to play (tests set it before START
 extern uint8_t room_bw, room_bh;  // its size in blocks
 extern uint8_t room_tw, room_th;  // ... and in cells, walls included
 extern uint8_t room_x1, room_y1;  // the last open column and row
+// A room's shape: stones in the floor (cells). Cover them all with the body at
+// once and the door in the back wall (row DOOR_Y, cells door_x and door_x + 1)
+// opens onto the next room.
+#define SHAPE_MAX 16
+#define DOOR_Y 1
+extern uint8_t shape_n, shape_x[SHAPE_MAX], shape_y[SHAPE_MAX];
+extern uint8_t door_x;
+extern uint8_t marks_covered;  // stones under the body now
+extern uint8_t door_open;
 
 #define DIR_RIGHT 0
 #define DIR_LEFT 1

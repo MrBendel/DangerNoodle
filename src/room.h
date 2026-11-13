@@ -19,6 +19,9 @@
 #define T_BEND_H (SCENE_TILES + 11)  // from the left (the tail side), turning down
 #define T_BEND_V (SCENE_TILES + 12)  // from the top, turning right (its rotation)
 #define T_FOOD (SCENE_TILES + 13)
+#define T_MARK (SCENE_TILES + 14)       // a stone of the room's shape
+#define T_DOOR_SHUT (SCENE_TILES + 15)  // the door's left half (flipped: right)
+#define T_DOOR_OPEN (SCENE_TILES + 16)
 // Background tile attributes (VRAM bank 1): bits 0-2 palette, 5 x flip, 6 y flip.
 #define A_FLIPX 0x20
 #define A_FLIPY 0x40

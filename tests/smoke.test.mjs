@@ -272,3 +272,49 @@ test('screen: corners (every bend has its divider on the tail side)', () => {
   turn(emu, 'RIGHT');
   matchGolden(emu.idle(10), 'play-corners');
 });
+
+// Room 1's shape (src/room.c): a ring of 8 stones, cells (12-14, 4-6) less the
+// middle. Its door: the back wall's cells 14 and 15.
+function coilTheRing() {
+  const emu = grow(startGame(undefined, 4242, 1), 5);  // 8 long, head at (12, 8)
+  assert.deepEqual([emu.v('head_x'), emu.v('head_y')], [12, 8]);
+  turn(emu, 'UP', 4);
+  turn(emu, 'RIGHT', 2);
+  turn(emu, 'DOWN', 2);
+  assert.equal(emu.v('marks_covered'), 7);
+  assert.equal(emu.v('door_open'), 0, 'not yet: one stone left');
+  turn(emu, 'LEFT');
+  return emu;
+}
+
+test('covering every stone of the shape at once opens the door', () => {
+  const emu = coilTheRing();
+  assert.equal(emu.v('marks_covered'), 8);
+  assert.equal(emu.v('door_open'), 1);
+  matchGolden(emu.idle(10), 'play-shape-made');
+  // It stays open as the body moves off the stones.
+  turn(emu, 'DOWN');
+  assert.equal(emu.v('marks_covered'), 7);
+  assert.equal(emu.v('door_open'), 1);
+});
+
+test('the shut door is a wall; through the open one is the next room, the score kept', () => {
+  const shut = startGame(undefined, 4242, 1);
+  turn(shut, 'UP');
+  shut.until((e) => e.v('dead_timer'), 300, 'the crash into the shut door');
+  assert.ok(shut.v('head_x') !== 14 || shut.v('head_y') !== 1);
+
+  const emu = coilTheRing();
+  turn(emu, 'DOWN');
+  turn(emu, 'RIGHT', 2);  // (15, 7), under the door's right half
+  turn(emu, 'UP', 6);
+  assert.deepEqual([emu.v('head_x'), emu.v('head_y')], [15, 1]);
+  emu.until((e) => e.v('in_transition'), 60, 'the next room');
+  settle(emu, PLAY, 'the next room');
+  assert.equal(emu.v('room_id'), 0);
+  assert.equal(emu.v('score', 'u16'), 5);
+  assert.equal(emu.v('noodle_len'), 3);
+  assert.equal(emu.v('door_open'), 0);
+  assert.equal(emu.v('dead_timer'), 0);
+  matchGolden(emu, 'play-next-room');
+});

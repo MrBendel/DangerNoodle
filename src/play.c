@@ -9,6 +9,11 @@
 // until a turn leads somewhere open; only a park with no way out is a crash.
 // START pauses.
 //
+// Each room has a shape: stones set in the floor. Cover them all with the body
+// at once (they glow) and the door in the back wall opens; through it is the
+// next room, the score kept. The HUD shows the noodle's length and the length
+// the shape needs.
+//
 // The body is background tiles, a tube of straight and bent pieces; each move
 // changes at most three cells (old head -> body, tail -> floor, new food), queued
 // with gfx_strip_attr and written
@@ -36,6 +41,7 @@
 #define MIN_DELAY 8
 #define FOOD_PER_SPEEDUP 4
 #define DEATH_FRAMES 60  // the crash shows this long before the game over screen
+#define EXIT_FRAMES 10   // the head slides into the doorway, then the next room
 
 uint16_t game_seed;
 uint16_t test_seed;
@@ -48,6 +54,9 @@ uint8_t paused;
 uint8_t dead_timer;
 uint8_t food_eaten;
 uint8_t noodle_parked;  // up against its own body, waiting for a way out
+uint8_t marks_covered, door_open;
+uint8_t exit_timer;     // counts up once the head is in the doorway (0: not yet)
+uint8_t room_cleared;   // came through a door: keep the score
 
 // Sprites: the head and the tail tip (8x16 mode, the art in the top half).
 #define SPR_HEAD 0
@@ -73,7 +82,9 @@ uint8_t head_turned;  // that move was a turn (the head rounds the bend)
 // uint8_t indices wrap at 256 on their own.
 uint8_t body_x[256], body_y[256];
 uint8_t body_i;
-// Which cells the noodle covers, by (y << 5) | x.
+// Each cell, by (y << 5) | x: the noodle covers it, and it's a stone.
+#define OCC_BODY 1
+#define OCC_MARK 2
 uint8_t occupied[ROOM_TH_MAX << 5];
 // Turns pressed but not yet made (so a quick RIGHT, DOWN both count).
 uint8_t dir_queue[2], dir_queued;
@@ -93,6 +104,12 @@ static void put(uint8_t x, uint8_t y, uint8_t tile, uint8_t attr) {
     uint8_t *t = gfx_strip_attr(x, y, 0, 1);
     t[0] = tile;
     t[STRIP_MAX_LEN] = attr;
+}
+
+// The floor of cell (x, y) again, as the tail leaves it: grass or a stone.
+static void put_floor(uint8_t x, uint8_t y) {
+    if (occupied[CELL(x, y)] & OCC_MARK) put(x, y, T_MARK, PLAY_PAL_MARK);
+    else put(x, y, FLOOR_TILE(x, y), PLAY_PAL_BOARD);
 }
 
 // The body piece for a cell whose neighbours along the body are directions a
@@ -162,7 +179,7 @@ static void noodle_draw(void) {
 
 static void hud_score(void) {
     win_number(6, 0, score, 4, 1);
-    win_number(16, 0, best_score, 4, 1);
+    if (!door_open) win_number(15, 0, noodle_len, 2, 1);
 }
 
 // The HUD row: the score and best, or "PAUSED" while paused.
@@ -172,8 +189,14 @@ static void hud_draw(void) {
         win_text(7, 0, "PAUSED");
         return;
     }
+    // SCORE 0000 LEN 03/08: the length, and what the shape needs.
     win_text(0, 0, "SCORE");
-    win_text(11, 0, "BEST");
+    if (door_open) win_text(11, 0, "DOOR OPEN");
+    else {
+        win_text(11, 0, "LEN");
+        win_text(17, 0, "/");
+        win_number(18, 0, shape_n, 2, 1);
+    }
     hud_score();
 }
 
@@ -210,8 +233,11 @@ void play_enter(void) BANKED {
     gfx_sprite_split(HUD_WY);  // sprites (enemies, later) stop above the HUD
 
     memset(occupied, 0, sizeof(occupied));
+    for (uint8_t i = 0; i < shape_n; i++) occupied[CELL(shape_x[i], shape_y[i])] = OCC_MARK;
+    marks_covered = door_open = exit_timer = 0;
     initrand(game_seed);
-    score = 0;
+    if (!room_cleared) score = 0;
+    room_cleared = 0;
     food_eaten = 0;
     paused = 0;
     dead_timer = 0;
@@ -230,7 +256,7 @@ void play_enter(void) BANKED {
         body_i++;
         body_x[body_i] = START_X - START_LEN + 1 + i;
         body_y[body_i] = START_Y;
-        occupied[CELL(body_x[body_i], START_Y)] = 1;
+        occupied[CELL(body_x[body_i], START_Y)] |= OCC_BODY;
         put_now(body_x[body_i], START_Y, T_TUBE_H, PLAY_PAL_NOODLE);
     }
     // The head's cell stays floor: the head is a sprite.
@@ -258,7 +284,7 @@ static void ahead(uint8_t d) {
 
 static uint8_t ahead_open(uint8_t d) {
     ahead(d);
-    return OPEN(ahead_x, ahead_y) && !occupied[CELL(ahead_x, ahead_y)];
+    return OPEN(ahead_x, ahead_y) && !(occupied[CELL(ahead_x, ahead_y)] & OCC_BODY);
 }
 
 static void queue_turn(uint8_t d) {
@@ -295,10 +321,21 @@ static uint8_t trapped(uint8_t tail) {
     for (uint8_t d = 0; d < 4; d++) {
         ahead(d);
         if (!OPEN(ahead_x, ahead_y)) continue;
-        if (!occupied[CELL(ahead_x, ahead_y)]) return 0;
+        if (!(occupied[CELL(ahead_x, ahead_y)] & OCC_BODY)) return 0;
         if (ahead_x == body_x[tail] && ahead_y == body_y[tail]) return 0;
     }
     return 1;
+}
+
+// The shape is made: the stones glow and the door opens.
+static void unlock(void) {
+    door_open = 1;
+    put(door_x, DOOR_Y, T_DOOR_OPEN, PLAY_PAL_WALL);
+    put(door_x + 1, DOOR_Y, T_DOOR_OPEN, PLAY_PAL_WALL | A_FLIPX);
+    palettes_marks_lit();
+    gfx_set_fade(0);
+    sfx_play(SFX_UNLOCK);
+    hud_draw();
 }
 
 static void step(void) {
@@ -313,11 +350,13 @@ static void step(void) {
     uint8_t x = ahead_x, y = ahead_y;
     uint8_t ate = x == food_x && y == food_y;
     uint8_t grows = ate && noodle_len < NOODLE_MAX;
+    // An open door is a way out of the back wall.
+    uint8_t door = door_open && y == DOOR_Y && (uint8_t)(x - door_x) < 2;
     // Unless it grows, the tail moves on this step: its cell is free to enter.
     uint8_t tail = body_i - noodle_len + 1;
-    if (!grows) occupied[CELL(body_x[tail], body_y[tail])] = 0;
-    if (!OPEN(x, y) || occupied[CELL(x, y)]) {
-        if (!grows) occupied[CELL(body_x[tail], body_y[tail])] = 1;
+    if (!grows) occupied[CELL(body_x[tail], body_y[tail])] &= ~OCC_BODY;
+    if (!door && (!OPEN(x, y) || (occupied[CELL(x, y)] & OCC_BODY))) {
+        if (!grows) occupied[CELL(body_x[tail], body_y[tail])] |= OCC_BODY;
         // A wall is a crash. Its own body parks it, unless there's no way out.
         if (!OPEN(x, y) || trapped(tail)) crash();
         else noodle_parked = 1;
@@ -336,7 +375,8 @@ static void step(void) {
         noodle_len++;
         tail_bx = tail_by = 0;  // the tail waits a move
     } else {
-        put(body_x[tail], body_y[tail], FLOOR_TILE(body_x[tail], body_y[tail]), PLAY_PAL_BOARD);
+        if (occupied[CELL(body_x[tail], body_y[tail])] & OCC_MARK) marks_covered--;
+        put_floor(body_x[tail], body_y[tail]);
         // The tip slides along straights. Into a bend it steps at once, pointing
         // the new way: a straight tip can't follow the curve inside one cell.
         uint8_t t2 = tail + 1, t3 = tail + 2;
@@ -345,14 +385,20 @@ static void step(void) {
         if (body_x[t3] - body_x[t2] != -tail_bx || body_y[t3] - body_y[t2] != -tail_by) {
             tail_bx = tail_by = 0;
             // The tip covers the whole cell now; the bend under it would show.
-            put(body_x[t2], body_y[t2], FLOOR_TILE(body_x[t2], body_y[t2]), PLAY_PAL_BOARD);
+            put_floor(body_x[t2], body_y[t2]);
         }
     }
     body_i++;
     body_x[body_i] = head_x = x;
     body_y[body_i] = head_y = y;
-    occupied[CELL(x, y)] = 1;
+    occupied[CELL(x, y)] |= OCC_BODY;
     slide_k = 0;
+    if (occupied[CELL(x, y)] & OCC_MARK) marks_covered++;
+    if (!door_open && marks_covered == shape_n) unlock();
+    if (door) {
+        exit_timer = 1;
+        sfx_play(SFX_START);
+    }
     if (ate) {
         score++;
         if (score > best_score) best_score = score;
@@ -369,6 +415,18 @@ static void step(void) {
 void play_update(void) BANKED {
     if (dead_timer) {
         if (++dead_timer > DEATH_FRAMES) state_change(STATE_GAME_OVER);
+        return;
+    }
+    // Through the door: let the head slide in, then the next room.
+    if (exit_timer) {
+        if (++exit_timer > EXIT_FRAMES) {
+            room_id++;  // room_load wraps it
+            room_cleared = 1;
+            state_restart();
+        }
+        if (slide_k < step_delay) slide_k++;
+        camera_update(0);
+        noodle_draw();
         return;
     }
     if (joy_pressed & J_START) {

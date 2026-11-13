@@ -30,15 +30,18 @@ static const Step start[] = {{5, 0, DUTY50, 0xA2, P(1849)}, {10, 0, DUTY50, 0xB3
 static const Step eat[] = {{3, 0, DUTY50, 0xB1, P(1899)}, {6, 0, DUTY50, 0xC2, P(1985)}};  // a bright blip up
 static const Step turn[] = {{1, 0, DUTY12, 0x41, P(1985)}};  // a soft tick
 static const Step death[] = {{20, 0x77, DUTY12, 0xF7, P(1700)}};  // a long fall
+static const Step unlock[] = {  // a chime rising up a chord
+    {5, 0, DUTY50, 0xB2, P(1798)}, {5, 0, DUTY50, 0xB2, P(1849)},
+    {5, 0, DUTY50, 0xB2, P(1881)}, {16, 0, DUTY50, 0xC5, P(1923)}};
 
 // Each sound's channel (0 = channel 1, 1 = channel 2, 2 = channel 4), priority,
 // step count and steps, as separate arrays: plain byte indexing (an array of
 // structs would multiply, a slow routine on this CPU).
 #define N(steps) (sizeof(steps) / sizeof(Step))
-static const uint8_t snd_ch[SFX_COUNT] = {1, 1, 1, 0};
-static const uint8_t snd_prio[SFX_COUNT] = {4, 3, 1, 6};
-static const uint8_t snd_n[SFX_COUNT] = {N(start), N(eat), N(turn), N(death)};
-static const Step *const snd_steps[SFX_COUNT] = {start, eat, turn, death};
+static const uint8_t snd_ch[SFX_COUNT] = {1, 1, 1, 0, 0};
+static const uint8_t snd_prio[SFX_COUNT] = {4, 3, 1, 6, 5};
+static const uint8_t snd_n[SFX_COUNT] = {N(start), N(eat), N(turn), N(death), N(unlock)};
+static const Step *const snd_steps[SFX_COUNT] = {start, eat, turn, death, unlock};
 
 uint8_t sfx_last = 0xFF;
 uint16_t sfx_played;
