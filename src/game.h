@@ -5,19 +5,30 @@
 
 #include <stdint.h>
 
-// A room is one screen: the 160x128 playfield above the HUD (the HUD is the
-// bottom two tile rows, on the window layer: gfx.h HUD_WY). Two grids share it:
-//   - cells: 8x8, the noodle's grid (and its food). The walls are 8 px thick, so
-//     the open area is 18x14 cells. Positions below are in cells.
+// Rooms (room.c), seen from a little above and in front. Two grids share a room:
+//   - cells: 8x8, the noodle's grid (and its food). Positions below are in cells,
+//     which are also background map tiles: (0, 0) is the room's top-left.
 //   - blocks: 16x16, the floor and later the enemies, switches and pushable
-//     blocks (Zelda-style), 9x7 of them inside the walls. A block covers 2x2
-//     cells; block (bx, by) is cells (1 + 2bx .. 2 + 2bx, 1 + 2by .. 2 + 2by).
-#define BOARD_X0 1   // the first open column ...
-#define BOARD_X1 18  // ... and the last (column 19: the right wall)
-#define BOARD_Y0 1   // the first open row (row 0: the top wall) ...
-#define BOARD_Y1 14  // ... and the last (row 15: the bottom wall)
-#define BLOCKS_W 9
-#define BLOCKS_H 7
+//     blocks (Zelda-style). A block covers 2x2 cells; block (bx, by) is cells
+//     (2 + 2bx .. 3 + 2bx, 2 + 2by .. 3 + 2by).
+// The walls: 16 px at the back (the top: its top, then its face) and on the
+// sides, 8 px at the front (the bottom), for a little depth. A room of W x H
+// blocks is (4 + 2W) x (3 + 2H) cells; open cells are x 2 .. room_x1, y 2 .. room_y1.
+// One screen (the 160x136 playfield above the one-row HUD) is 8 x 7 blocks.
+// Bigger rooms scroll, up to 14 x 14 blocks (32 x 31 cells): the whole room fits
+// the 32x32 background map, so it's drawn once and scrolling streams nothing.
+#define ROOM_X0 2  // the first open column (0-1: the left wall) ...
+#define ROOM_Y0 2  // ... and row (0: the back wall's top, 1: its face)
+#define ROOM_BW_MIN 8   // a room is at least a screen
+#define ROOM_BH_MIN 7
+#define ROOM_BW_MAX 14
+#define ROOM_BH_MAX 14
+#define ROOM_TH_MAX (3 + 2 * ROOM_BH_MAX)
+#define ROOM_COUNT 2  // 0: one screen; 1: bigger, scrolls both ways
+extern uint8_t room_id;           // the room to play (tests set it before START)
+extern uint8_t room_bw, room_bh;  // its size in blocks
+extern uint8_t room_tw, room_th;  // ... and in cells, walls included
+extern uint8_t room_x1, room_y1;  // the last open column and row
 
 #define DIR_RIGHT 0
 #define DIR_LEFT 1

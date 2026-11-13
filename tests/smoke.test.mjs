@@ -70,17 +70,57 @@ test('the opposite way doubles it back in a hairpin, away from its body', () => 
 
 test('a hairpin into a wall bends the other way', () => {
   const emu = startGame();
-  // Up against the top wall, heading right.
+  // Up against the back wall (row 2 is the top open row), heading right.
   emu.tap('UP');
-  emu.until((e) => e.v('head_y') === 1, 300, 'the top row');
+  emu.until((e) => e.v('head_y') === 2, 300, 'the top row');
   emu.tap('RIGHT');
   moves(emu);
   const x = emu.v('head_x');
   emu.tap('LEFT');
   moves(emu, 2);
   assert.equal(emu.v('noodle_dir'), LEFT);
-  assert.deepEqual([emu.v('head_x'), emu.v('head_y')], [x - 1, 2]);
+  assert.deepEqual([emu.v('head_x'), emu.v('head_y')], [x - 1, 3]);
   assert.equal(emu.v('dead_timer'), 0);
+});
+
+test('a one-screen room is 8x7 blocks and fills the playfield', () => {
+  const emu = startGame();
+  assert.deepEqual([emu.v('room_bw'), emu.v('room_bh')], [8, 7]);
+  assert.deepEqual([emu.v('room_tw'), emu.v('room_th')], [20, 17], '16 px back and side walls, an 8 px near wall');
+  assert.deepEqual([emu.v('room_x1'), emu.v('room_y1')], [17, 15], 'the last open column and row');
+  moves(emu, 5);
+  assert.deepEqual([emu.v('scroll_x'), emu.v('scroll_y')], [0, 0], 'it never scrolls');
+});
+
+test('a bigger room scrolls after the head, looking ahead', () => {
+  const emu = startGame(undefined, 4242, 1);
+  assert.deepEqual([emu.v('room_tw'), emu.v('room_th')], [32, 27]);
+  // The head starts near the top-left corner: the view is there too, already
+  // looking a little ahead (right).
+  assert.deepEqual([emu.v('scroll_x'), emu.v('scroll_y')], [7 * 8 + 4 - 80 + 24, 0]);
+  // Heading right across the room, the view follows with the head left of centre.
+  emu.until((e) => e.v('head_x') === 18, 300, 'the middle of the room');
+  emu.idle(20);
+  const sx = emu.v('scroll_x');
+  const onScreen = emu.v('head_x') * 8 - sx;
+  assert.ok(sx > 0, 'scrolled right');
+  assert.ok(onScreen >= 40 && onScreen < 80, `head at screen x ${onScreen}: behind centre, room to see ahead`);
+  // Down to the bottom row, then right to the last column: the view scrolls
+  // down and right, and stops at the room's edges.
+  emu.tap('DOWN');
+  emu.until((e) => e.v('head_y') === emu.v('room_y1'), 300, 'the bottom row');
+  emu.tap('RIGHT');
+  emu.until((e) => e.v('head_x') === emu.v('room_x1'), 300, 'the last column');
+  assert.equal(emu.v('dead_timer'), 0);
+  assert.equal(emu.v('scroll_y'), 27 * 8 - 136, 'the near wall at the bottom of the view');
+  assert.equal(emu.v('scroll_x'), 32 * 8 - 160, 'the right wall at the right of the view');
+});
+
+test('screen: a bigger room, scrolled', () => {
+  const emu = startGame(undefined, 4242, 1);
+  emu.tap('DOWN');
+  moves(emu, 8);
+  matchGolden(emu.idle(30), 'play-big-room');
 });
 
 test('eating grows the noodle and scores', () => {
@@ -91,13 +131,13 @@ test('eating grows the noodle and scores', () => {
   moves(emu);
   assert.equal(emu.v('score', 'u16'), 1);
   assert.equal(emu.v('noodle_len'), 4);
-  assert.notEqual(emu.v('food_x'), emu.v('head_x'), 'new food somewhere else');
+  assert.notDeepEqual([emu.v('food_x'), emu.v('food_y')], [emu.v('head_x'), emu.v('head_y')], 'new food somewhere else');
 });
 
 test('hitting a wall ends the game; START goes back to the title', () => {
   const emu = startGame();
   emu.until((e) => e.v('dead_timer'), 300, 'the crash');
-  assert.equal(emu.v('head_x'), 18, 'crashed at the right wall (column 19 is the wall)');
+  assert.equal(emu.v('head_x'), 17, 'crashed at the right wall (columns 18-19 are the wall)');
   settle(emu, GAME_OVER, 'game over screen');
   emu.tap('START');
   assert.equal(emu.v('next_state'), GAME_OVER, 'input is ignored for a moment');

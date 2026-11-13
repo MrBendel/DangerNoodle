@@ -139,9 +139,13 @@ export function bootToTitle() {
   return settle(boot(), TITLE, 'title screen');
 }
 
-/** From the title, START a game on a fixed seed (so food lands in the same places). */
-export function startGame(emu = bootToTitle(), seed = 4242) {
+/**
+ * From the title, START a game on a fixed seed (so food lands in the same places),
+ * in room 0 (one screen) unless another is given (src/room.c's table).
+ */
+export function startGame(emu = bootToTitle(), seed = 4242, room = 0) {
   emu.writeBytes(emu.symbols.addr('test_seed'), [seed & 255, seed >> 8]);
+  emu.write8(emu.symbols.addr('room_id'), room);
   return settle(emu.tap('START'), PLAY, 'play state');
 }
 

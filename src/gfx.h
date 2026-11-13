@@ -16,14 +16,15 @@
 #define SCREEN_TW 20  // screen size in tiles
 #define SCREEN_TH 18
 
-// The HUD: the bottom two tile rows, on the window layer. The hardware draws the
+// The HUD: the bottom tile row, on the window layer. The hardware draws the
 // window from line WY to the bottom of the screen with no per-frame work, so a
 // bottom HUD is free; a top one would need a scanline interrupt to switch the
 // window off again every frame (decided in RogueGB, ROADMAP 2026-10-12). Sprites
-// are cut off at HUD_WY by gfx_sprite_split so they don't draw over it.
-#define HUD_ROWS 2
-#define PLAYFIELD_TH (SCREEN_TH - HUD_ROWS)  // 16 rows: 160x128 px
-#define HUD_WY (PLAYFIELD_TH * 8)            // 128
+// are cut off at HUD_WY by gfx_sprite_split so they don't draw over it. One row
+// leaves a 17-row playfield: exactly a one-screen room (game.h).
+#define HUD_ROWS 1
+#define PLAYFIELD_TH (SCREEN_TH - HUD_ROWS)  // 17 rows: 160x136 px
+#define HUD_WY (PLAYFIELD_TH * 8)            // 136
 
 // Background scroll, applied by the vblank interrupt (together with the sprite
 // update), so the background and sprites always move in the same frame.

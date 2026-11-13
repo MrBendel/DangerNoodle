@@ -6,11 +6,20 @@ engine. Proposals, not decisions: change freely.
 ## Dungeons: two grids, the body in background tiles
 
 - **Two grids** (decided 2026-11-11). The noodle moves on **8×8 cells**; the floor,
-  enemies, switches and pushable blocks sit on **16×16 blocks**, Zelda-style. A room
-  is one screen: the 160×128 playfield with **8 px walls**, so the noodle has 18×14 =
-  252 open cells and there are 9×7 blocks inside the walls (16 px walls would leave
-  only 8×6 blocks, 48 cells for a 16 px snake). A block covers 2×2 cells; block
-  (bx, by) starts at cell (1 + 2bx, 1 + 2by). Flip-screen rooms fit "restart the room".
+  enemies, switches and pushable blocks sit on **16×16 blocks**, Zelda-style. A block
+  covers 2×2 cells; block (bx, by) starts at cell (2 + 2bx, 2 + 2by).
+- **Walls with depth** (decided 2026-11-12): rooms are seen from a little above and in
+  front. The back (top) wall is 16 px, its top and then its brick face; the side walls
+  are 16 px; the near (bottom) wall is 8 px. A room of W×H blocks is (4 + 2W)×(3 + 2H)
+  cells. The HUD is one row, so the playfield is 160×136 and a **one-screen room is
+  8×7 blocks** (16×14 = 224 open cells).
+- **Rooms larger than the screen scroll** (decided 2026-11-12), up to **14×14 blocks**
+  (32×31 cells), so a whole room fits the 32×32 background map: it's drawn once, the
+  body's cell updates go straight to the map, and scrolling is only the scroll
+  registers (no streaming). The camera (`src/room.c`) eases after the head, looking
+  24 px ahead the way it's going, and stays inside the room. Rooms beyond 14 blocks
+  would need RogueGB's row/column streaming (`camera.c`, `room_fill.s`) and body
+  updates that skip cells outside the drawn area.
 - **What the two grids mean for the rules (to decide while prototyping):** a 16×16
   enemy fills 2×2 cells, so a tight coil around one is a ring of 12 cells. A 16×16
   switch could press when any of its 4 cells is under the body, or need all 4
@@ -23,7 +32,7 @@ engine. Proposals, not decisions: change freely.
   screen for free; a top HUD would need a scanline interrupt every frame to switch the
   window off again. The only per-frame cost is `gfx_sprite_split(HUD_WY)`, which keeps
   sprites from drawing over it. It also suits the overworld: the background scrolls
-  under a fixed window. `gfx.h` defines `HUD_ROWS`, `PLAYFIELD_TH` and `HUD_WY` (128).
+  under a fixed window. `gfx.h` defines `HUD_ROWS` (1), `PLAYFIELD_TH` and `HUD_WY` (136).
 - **The body is drawn in the background, not sprites.** The hardware shows 40 sprites,
   10 per scanline: a sprite body would flicker past ~10 segments in a row. Background
   tiles have no limit, and a move changes at most 4 cells (4 one-tile strips in the
@@ -40,7 +49,8 @@ engine. Proposals, not decisions: change freely.
   16×16 characters); critters, keys and the bulge's highlight can be 8×8.
 - **Coil detection:** when the head moves next to its own body, flood-fill from each
   nearby enemy; an enemy whose region doesn't reach the room's open space is coiled.
-  A 252-cell room is cheap to fill once per move, and it can be spread over frames.
+  A one-screen room (224 cells) is cheap to fill once per move; the largest (28×28 =
+  784 cells) may need the fill spread over frames.
   "Tight loop" vs "loose circle" is a limit on the enclosed area.
 - **Switches** are cells under the body: the room's switch list is checked against the
   cells that changed this move (head entering, tail leaving), not the whole body.
@@ -89,7 +99,7 @@ not at random (design doc, Combat). A sketch:
 The smallest slice that tests the dungeon rules:
 
 1. Auto-movement on the 8×8 grid at a slow speed, with corner pieces, in a room of
-   16×16 floor blocks inside 8 px walls.
+   16×16 floor blocks inside the walls.
 2. Hitting a wall or yourself bounces back and costs a tail segment; at just the head,
    lose a heart and restart the room at the length you entered with.
 3. HUD: hearts, current length, the length the room needs.

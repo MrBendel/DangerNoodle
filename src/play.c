@@ -1,12 +1,15 @@
 #pragma bank 255
 // Play: a placeholder noodle game, to prove the engine end to end until the
 // real design lands. The noodle moves a cell (8x8) at a time inside the room's
-// 8 px walls, over a floor of 16x16 blocks (game.h: the two grids). The d-pad
-// turns it (two turns can be queued between moves), food makes it longer and a
-// little faster, and running into a wall or itself ends the game. START pauses.
+// walls, over a floor of 16x16 blocks (game.h: the two grids), and the camera
+// follows it round rooms bigger than the screen (room.c). The d-pad turns it
+// (two turns can be queued between moves; straight back makes a hairpin), food
+// makes it longer and a little faster, and running into a wall or itself ends
+// the game. START pauses.
 //
 // Each move changes at most four cells (old head -> body, new head, tail ->
-// floor, new food), queued with gfx_strip_attr and written in vblank.
+// floor, new food), queued with gfx_strip_attr and written in vblank. The whole
+// room is in the background map (room.c), so a cell's map tile is its own.
 #include <gb/gb.h>
 #include <gb/cgb.h>
 #include <rand.h>
@@ -16,23 +19,11 @@
 #include "input.h"
 #include "gfx.h"
 #include "game.h"
+#include "room.h"
 #include "board.h"
 
-// Tiles, in tools/tile-art.mjs's order.
-#define T_GRASS (SCENE_TILES + 0)        // a 16x16 floor block: 4 tiles, TL TR BL BR
-#define T_WALL_CORNER (SCENE_TILES + 4)  // the top-left corner (flipped: the others)
-#define T_WALL_TOP (SCENE_TILES + 5)     // (flipped: the bottom)
-#define T_WALL_LEFT (SCENE_TILES + 6)    // (flipped: the right)
-#define T_BODY (SCENE_TILES + 7)
-#define T_HEAD_R (SCENE_TILES + 8)  // facing right (flipped: left)
-#define T_HEAD_D (SCENE_TILES + 9)  // facing down (flipped: up)
-#define T_FOOD (SCENE_TILES + 10)
-// Background tile attributes (VRAM bank 1): bits 0-2 palette, 5 x flip, 6 y flip.
-#define A_FLIPX 0x20
-#define A_FLIPY 0x40
-
-#define START_X 6
-#define START_Y 7
+#define START_X 7
+#define START_Y 8
 #define START_LEN 3
 #define START_DELAY 10  // frames a move at first
 #define MIN_DELAY 4
@@ -55,15 +46,12 @@ uint8_t food_eaten;
 uint8_t body_x[256], body_y[256];
 uint8_t body_i;
 // Which cells the noodle covers, by (y << 5) | x.
-uint8_t occupied[(BOARD_Y1 + 1) << 5];
+uint8_t occupied[ROOM_TH_MAX << 5];
 // Turns pressed but not yet made (so a quick RIGHT, DOWN both count).
 uint8_t dir_queue[2], dir_queued;
 
 #define CELL(x, y) (((uint16_t)(y) << 5) | (x))
-
-// The floor tile under a cell: which quarter of its 16x16 block (blocks start
-// at cell 1, inside the wall).
-#define FLOOR_TILE(x, y) (T_GRASS + (((x) - 1) & 1) + ((((y) - 1) & 1) << 1))
+#define OPEN(x, y) ((x) >= ROOM_X0 && (x) <= room_x1 && (y) >= ROOM_Y0 && (y) <= room_y1)
 
 static void put_now(uint8_t x, uint8_t y, uint8_t tile, uint8_t attr) {
     VBK_REG = 1;
@@ -91,16 +79,28 @@ static void hud_score(void) {
     win_number(16, 0, best_score, 4, 1);
 }
 
+// The HUD row: the score and best, or "PAUSED" while paused.
+static void hud_draw(void) {
+    fill_win_rect(0, 0, SCREEN_TW, HUD_ROWS, 0);
+    if (paused) {
+        win_text(7, 0, "PAUSED");
+        return;
+    }
+    win_text(0, 0, "SCORE");
+    win_text(11, 0, "BEST");
+    hud_score();
+}
+
 // Food on a free cell: a few random tries, then the first free cell.
 static void place_food(uint8_t now) {
     uint8_t x, y, tries = 64;
     do {
         x = rand() & 31;
-        y = rand() & 15;
-        if (x >= BOARD_X0 && x <= BOARD_X1 && y >= BOARD_Y0 && y <= BOARD_Y1 && !occupied[CELL(x, y)]) goto found;
+        y = rand() & 31;
+        if (OPEN(x, y) && !occupied[CELL(x, y)]) goto found;
     } while (--tries);
-    for (y = BOARD_Y0; y <= BOARD_Y1; y++)
-        for (x = BOARD_X0; x <= BOARD_X1; x++)
+    for (y = ROOM_Y0; y <= room_y1; y++)
+        for (x = ROOM_X0; x <= room_x1; x++)
             if (!occupied[CELL(x, y)]) goto found;
     food_x = food_y = 0xFF;  // the board is full
     return;
@@ -111,45 +111,13 @@ found:
     else put(x, y, T_FOOD, PLAY_PAL_FOOD);
 }
 
-// The room: 8 px walls round the playfield, 16x16 floor blocks inside.
-static void draw_room(void) {
-    const uint8_t R = PLAYFIELD_TH - 1, W = SCREEN_TW - 1;  // the bottom row, the right column
-    VBK_REG = 1;
-    fill_bkg_rect(0, 0, SCREEN_TW, PLAYFIELD_TH, PLAY_PAL_WALL);
-    fill_bkg_rect(BOARD_X0, BOARD_Y0, BOARD_X1 - BOARD_X0 + 1, BOARD_Y1 - BOARD_Y0 + 1, PLAY_PAL_BOARD);
-    fill_bkg_rect(0, R, SCREEN_TW, 1, PLAY_PAL_WALL | A_FLIPY);
-    fill_bkg_rect(W, 0, 1, PLAYFIELD_TH, PLAY_PAL_WALL | A_FLIPX);
-    set_bkg_tile_xy(W, R, PLAY_PAL_WALL | A_FLIPX | A_FLIPY);
-    VBK_REG = 0;
-    fill_bkg_rect(1, 0, SCREEN_TW - 2, 1, T_WALL_TOP);
-    fill_bkg_rect(1, R, SCREEN_TW - 2, 1, T_WALL_TOP);
-    fill_bkg_rect(0, 1, 1, PLAYFIELD_TH - 2, T_WALL_LEFT);
-    fill_bkg_rect(W, 1, 1, PLAYFIELD_TH - 2, T_WALL_LEFT);
-    set_bkg_tile_xy(0, 0, T_WALL_CORNER);
-    set_bkg_tile_xy(W, 0, T_WALL_CORNER);
-    set_bkg_tile_xy(0, R, T_WALL_CORNER);
-    set_bkg_tile_xy(W, R, T_WALL_CORNER);
-    // ... and the corners on the other sides need the other flip too.
-    VBK_REG = 1;
-    set_bkg_tile_xy(W, 0, PLAY_PAL_WALL | A_FLIPX);
-    set_bkg_tile_xy(0, R, PLAY_PAL_WALL | A_FLIPY);
-    VBK_REG = 0;
-    for (uint8_t by = 0; by < BLOCKS_H; by++)
-        for (uint8_t bx = 0; bx < BLOCKS_W; bx++) {
-            static const uint8_t grass[4] = {T_GRASS, T_GRASS + 1, T_GRASS + 2, T_GRASS + 3};
-            set_bkg_tiles(1 + (bx << 1), 1 + (by << 1), 2, 2, grass);
-        }
-}
-
 void play_enter(void) BANKED {
     palettes_play();
     banked_bkg_data(SCENE_TILES, BOARD_TILE_COUNT, board_tiles, BANK(board));
-    draw_room();
+    room_load();
+    room_draw();
     // The HUD on the window, at the bottom (gfx.h HUD_WY). Its attributes are
     // BG_PAL_UI everywhere (gfx_init).
-    fill_win_rect(0, 0, SCREEN_TW, HUD_ROWS, 0);
-    win_text(0, 0, "SCORE");
-    win_text(11, 0, "BEST");
     move_win(7, HUD_WY);
     SHOW_WIN;
     gfx_sprite_split(HUD_WY);  // sprites (enemies, later) stop above the HUD
@@ -178,13 +146,8 @@ void play_enter(void) BANKED {
     head_y = START_Y;
     put_now(head_x, head_y, head_tile(), head_attr());
     place_food(1);
-    hud_score();
-}
-
-// "PAUSED" on the HUD's second row.
-static void pause_banner(void) {
-    if (paused) win_text(7, 1, "PAUSED");
-    else fill_win_rect(7, 1, 6, 1, 0);
+    hud_draw();
+    camera_update(1);
 }
 
 // The cell next to the head in direction d, in ahead_x/ahead_y.
@@ -202,8 +165,7 @@ static void ahead(uint8_t d) {
 
 static uint8_t ahead_open(uint8_t d) {
     ahead(d);
-    return ahead_x >= BOARD_X0 && ahead_x <= BOARD_X1 && ahead_y >= BOARD_Y0 && ahead_y <= BOARD_Y1 &&
-           !occupied[CELL(ahead_x, ahead_y)];
+    return OPEN(ahead_x, ahead_y) && !occupied[CELL(ahead_x, ahead_y)];
 }
 
 static void queue_turn(uint8_t d) {
@@ -247,7 +209,7 @@ static void step(void) {
     // Unless it grows, the tail moves on this step: its cell is free to enter.
     uint8_t tail = body_i - noodle_len + 1;
     if (!grows) occupied[CELL(body_x[tail], body_y[tail])] = 0;
-    if (x < BOARD_X0 || x > BOARD_X1 || y < BOARD_Y0 || y > BOARD_Y1 || occupied[CELL(x, y)]) {
+    if (!OPEN(x, y) || occupied[CELL(x, y)]) {
         if (!grows) occupied[CELL(body_x[tail], body_y[tail])] = 1;
         crash();
         return;
@@ -280,7 +242,7 @@ void play_update(void) BANKED {
     }
     if (joy_pressed & J_START) {
         paused ^= 1;
-        pause_banner();
+        hud_draw();
         return;
     }
     if (paused) return;
@@ -293,4 +255,5 @@ void play_update(void) BANKED {
         step_timer = step_delay;
         step();
     }
+    camera_update(0);
 }

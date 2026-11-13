@@ -6,7 +6,7 @@
 // Two sizes share a room (docs/design/engine-plan.md):
 //   - the noodle and its food are 8x8 tiles: the noodle moves on an 8x8 grid;
 //   - the floor (and later enemies, switches, blocks) are 16x16 metatiles, laid
-//     on a 16x16 grid inside the room's 8 px walls. A metatile becomes four 8x8
+//     on a 16x16 grid inside the room's walls. A metatile becomes four 8x8
 //     tiles: top-left, top-right, bottom-left, bottom-right.
 
 /** Turn art on its side (rows become columns): a right-facing head faces down. */
@@ -39,27 +39,60 @@ const grass = [
   '................',
 ];
 
-// --- 8x8: the walls (1 lit stone, 2 face, 3 shadow), drawn for the top-left;
-// play.c flips them for the other sides and corners ---
-const wallCorner = [
+// --- 8x8: the walls, seen from a little above and in front (1 lit top, 2 brick
+// face, 3 shadow and edges). The back (top) wall is 16 px: its top, then its face.
+// The side walls are 16 px of top with an edge where they drop to the floor; the
+// near (bottom) wall is an 8 px top. Drawn for the left side; src/room.c flips
+// them for the right ---
+const wallCap = [
   '11111111',
-  '12222222',
-  '12232222',
-  '12222222',
-  '12222322',
-  '12222222',
-  '12222223',
-  '12222233',
+  '11121111',
+  '11111111',
+  '11111121',
+  '12111111',
+  '11111111',
+  '11112111',
+  '11111111',
 ];
-const wallTop = [
-  '11111111',
-  '22222222',
-  '22322222',
-  '22222232',
-  '22222222',
-  '23222222',
-  '22222222',
+const wallEdge = [  // the side wall's inner column: its edge on the right
+  '11111123',
+  '11211123',
+  '11111123',
+  '11111123',
+  '11112123',
+  '11111123',
+  '12111123',
+  '11111123',
+];
+const wallFace = [  // the back wall's bricks
+  '22232222',
+  '22232222',
   '33333333',
+  '22222223',
+  '22222223',
+  '33333333',
+  '22232222',
+  '33333333',
+];
+const wallBottom = [  // the near wall: an edge along the top
+  '33333333',
+  '22222222',
+  '11111111',
+  '11121111',
+  '11111111',
+  '11111121',
+  '12111111',
+  '11111111',
+];
+const wallCorner = [  // where the left wall meets the near wall
+  '11111123',
+  '11111122',
+  '11111111',
+  '11121111',
+  '11111111',
+  '11111121',
+  '12111111',
+  '11111111',
 ];
 
 // --- 8x8: the noodle (1 outline, 2 scales, 3 belly and eyes) and its food ---
@@ -95,10 +128,10 @@ const food = [
   '..1111..',
 ];
 
-// Order matters: src/play.c names them (T_GRASS ...).
+// Order matters: src/room.h names them (T_GRASS ...).
 export const BOARD_TILES = [
   ...quarters(grass, 'grass'),  // T_GRASS: 4 tiles
-  wallCorner, wallTop, transpose(wallTop),  // T_WALL_CORNER, T_WALL_TOP, T_WALL_LEFT
+  wallCap, wallEdge, wallFace, wallBottom, wallCorner,  // T_WALL_CAP ... T_WALL_CORNER
   body, headRight, transpose(headRight), food,  // T_BODY, T_HEAD_R, T_HEAD_D, T_FOOD
 ];
 

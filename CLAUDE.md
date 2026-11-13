@@ -24,6 +24,8 @@
   vblank queue (`gfx_strip`, `gfx_strip_attr`, `gfx_vram_copy`; at most 8 strips and 6
   copies a frame before it flushes the slow way).
 - Two grids (`src/game.h`): the noodle moves on 8x8 cells; the floor, enemies, switches
-  and blocks are 16x16 (Zelda-style). A room is one screen with 8 px walls: 18x14 cells,
-  9x7 blocks inside. Placeholder art is ASCII in `tools/tile-art.mjs`.
+  and blocks are 16x16 (Zelda-style). Walls are 16 px at the back (top) and sides, 8 px
+  at the front (bottom). A one-screen room is 8x7 blocks above a one-row HUD; rooms up
+  to 14x14 blocks scroll (`src/room.c`: the whole room sits in the 32x32 background
+  map). Placeholder art is ASCII in `tools/tile-art.mjs`.
 - Never commit build output or the extracted `tools/.gbdk-*` folders.
