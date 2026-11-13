@@ -92,6 +92,7 @@ void win_frame(uint8_t x, uint8_t y, uint8_t w, uint8_t h) BANKED;
 // Sprite palettes, by what uses them (the palette is bits 0-2 of a sprite's flags).
 #define SPR_PAL_NOODLE 0
 #define SPR_PAL_FLASH 1   // colors inverted, for a warning or a hit
+#define SPR_PAL_TAIL 2    // the noodle's tail tip: color 3 is grass (a mask)
 #define SPR_PAL_UI 7
 extern uint16_t pal_base_bg[PAL_COUNT * 4], pal_base_obj[PAL_COUNT * 4];
 // Put the base palettes on screen at fade step `step` (0 = as they are,

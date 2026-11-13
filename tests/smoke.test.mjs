@@ -147,7 +147,7 @@ function grow(emu, n) {
 /** Tap a turn, then make n moves. */
 const turn = (emu, dir, n = 1) => moves(emu.tap(dir), n);
 
-test('the head slides between cells, eased', () => {
+test('the head slides between cells at an even pace', () => {
   const emu = startGame();
   moves(emu);
   // The head sprite's x (shadow OAM, sprite 0) on each frame until the next move.
@@ -159,7 +159,18 @@ test('the head slides between cells, eased', () => {
   const deltas = xs.slice(1).map((x, i) => x - xs[i]);
   assert.ok(deltas.every((d) => d >= 0) && xs.at(-1) - xs[0] <= 8, `forward, at most a cell: ${xs}`);
   assert.ok(deltas.filter((d) => d > 0).length >= 4, `moves on most frames: ${xs}`);
-  assert.ok(deltas[0] > deltas.at(-1), `eases out: ${xs}`);
+  assert.ok(Math.max(...deltas) - Math.min(...deltas) <= 1, `an even pace: ${xs}`);
+});
+
+test('the head sprite sits on its cell, whichever way it faces', () => {
+  const emu = startGame();
+  const oam = emu.symbols.addr('shadow_OAM');
+  for (const dir of ['UP', 'LEFT', 'DOWN', 'RIGHT']) {
+    moves(emu.tap(dir), 2);
+    emu.until((e) => e.v('slide_k') === e.v('step_delay'), 30, 'the end of a slide');
+    const at = [emu.read8(oam + 1) - 8, emu.read8(oam) - 16];
+    assert.deepEqual(at, [emu.v('head_x') * 8, emu.v('head_y') * 8], `facing ${dir}`);
+  }
 });
 
 test('running into its own body parks it until a turn leads out', () => {

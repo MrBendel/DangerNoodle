@@ -45,6 +45,8 @@ void palettes_play(void) BANKED {
     set_bg(BG_PAL_UI, hud);  // the window: the HUD
     // The head and tail sprites (color 0 is transparent on sprites).
     memcpy(&pal_base_obj[SPR_PAL_NOODLE << 2], noodle, 8);
+    memcpy(&pal_base_obj[SPR_PAL_TAIL << 2], noodle, 6);
+    pal_base_obj[(SPR_PAL_TAIL << 2) + 3] = GRASS;
 }
 
 // Menus: the title's colors for the compact and display fonts.

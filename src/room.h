@@ -14,9 +14,9 @@
 #define T_WALL_FACE (SCENE_TILES + 6)    // the back wall's face
 #define T_WALL_BOTTOM (SCENE_TILES + 7)  // the near wall
 #define T_WALL_CORNER (SCENE_TILES + 8)  // where a side wall meets the near wall
-#define T_BODY (SCENE_TILES + 9)
-#define T_HEAD_R (SCENE_TILES + 10)  // facing right (flipped: left)
-#define T_HEAD_D (SCENE_TILES + 11)  // facing down (flipped: up)
+#define T_TUBE_H (SCENE_TILES + 9)   // the body, left to right
+#define T_TUBE_V (SCENE_TILES + 10)  // the body, up and down
+#define T_BEND (SCENE_TILES + 11)    // left to down (flips: the other corners)
 #define T_FOOD (SCENE_TILES + 12)
 // Background tile attributes (VRAM bank 1): bits 0-2 palette, 5 x flip, 6 y flip.
 #define A_FLIPX 0x20

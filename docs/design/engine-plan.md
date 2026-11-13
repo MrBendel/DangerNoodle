@@ -25,9 +25,14 @@ engine. Proposals, not decisions: change freely.
   switch could press when any of its 4 cells is under the body, or need all 4
   (a "weighted" switch for free). Pushable blocks move a block (2 cells) at a time.
 - **Smooth movement** (done 2026-11-12): the head and tail tip are sprites that slide
-  between cells every frame, eased out (quick off the mark, settling in), while the
+  between cells every frame at an even pace (an eased slide pulsed, stop-go), while the
   body behind them stays background tiles that change once per step. The cell the head
-  is entering stays floor until the next step makes it body.
+  is entering stays floor until the next step makes it body. The body is one tube
+  (straight pieces and a flipped bend); the head and tip are open where they meet it,
+  so they slide out of it with no seam. The tip has its own sprite palette whose
+  color 3 is grass, masking the tube under its taper; into a bend it steps at once,
+  since a straight tip can't follow a curve inside one cell. In 8×16 sprite mode a
+  vertical flip swaps the pair's halves, so up-facing pieces are drawn, not flipped.
 - **Parking** (decided 2026-11-12): running into its own body doesn't hurt; the noodle
   stops with its head against itself and waits for a turn that leads somewhere open
   (which goes at once, not at the next beat). Only a park with no way out (every
@@ -48,9 +53,8 @@ engine. Proposals, not decisions: change freely.
   palettes, so a fire- or ice-coated segment is the same tile on another palette, and the
   bulge travelling down the body is a palette or tile change per move. Half-and-half
   bodies come at no cost.
-- **Turns and corners:** the segment tiles need straight, corner, head and tail pieces;
-  flips (x/y attributes) give the four directions of each, so about 6 tiles a body
-  style.
+- **Turns and corners:** a body style is a straight tube, a bend (flipped for the four
+  corners), and head and tail sprites (right, down and up drawn; left flipped).
 - **Enemies** are 16×16 sprites on the block grid (RogueGB's `sprite_slot.c` draws
   16×16 characters); critters, keys and the bulge's highlight can be 8×8.
 - **Coil detection:** when the head moves next to its own body, flood-fill from each

@@ -9,9 +9,10 @@
 // until a turn leads somewhere open; only a park with no way out is a crash.
 // START pauses.
 //
-// The body is background tiles; each move changes at most three cells (old
-// head -> body, tail -> floor, new food), queued with gfx_strip_attr and written
-// in vblank. The head and the tail tip are sprites that slide (eased) from cell
+// The body is background tiles, a tube of straight and bent pieces; each move
+// changes at most three cells (old head -> body, tail -> floor, new food), queued
+// with gfx_strip_attr and written
+// in vblank. The head and the tail tip are sprites that slide at an even pace from cell
 // to cell between moves, so the noodle glides instead of jumping 8 px. The cell
 // the head is entering stays floor until the next move makes it body. The whole
 // room is in the background map (room.c), so a cell's map tile is its own.
@@ -51,15 +52,19 @@ uint8_t noodle_parked;  // up against its own body, waiting for a way out
 // Sprites: the head and the tail tip (8x16 mode, the art in the top half).
 #define SPR_HEAD 0
 #define SPR_TAIL 1
-#define S_HEAD_R 0
+#define S_HEAD_R 0  // left: flipped in X
 #define S_HEAD_D 2
-#define S_TAIL 4
+#define S_HEAD_U 4  // not a flip: tile-art.mjs
+#define S_TAIL_R 6  // the tip whose body goes on to the right
+#define S_TAIL_D 8
+#define S_TAIL_U 10
 // The slide: frames since the last move (up to step_delay), and how far (px)
-// the ends have moved by then, eased out: quick off the mark, settling in.
+// the ends have moved by then: an even pace, so the noodle flows.
 uint8_t slide_k;
 uint8_t slide_px[START_DELAY + 1];
 // Where each end came from, as a step back from its cell (-1, 0, 1).
 int8_t head_bx, head_by, tail_bx, tail_by;
+uint8_t move_dir;  // the way the head went on its last move
 
 // The body, a ring of cells: the head at body_i, the tail noodle_len - 1 behind.
 // uint8_t indices wrap at 256 on their own.
@@ -87,14 +92,35 @@ static void put(uint8_t x, uint8_t y, uint8_t tile, uint8_t attr) {
     t[STRIP_MAX_LEN] = attr;
 }
 
-// The eased slide for the current speed: 8 - 8(1 - k/d)^2 px after k frames.
-// Only when the speed changes, so the division is fine.
+// The slide for the current speed: 8k/d px after k frames, rounded. Only when
+// the speed changes, so the division is fine.
 static void slide_table(void) {
     uint8_t d = step_delay;
-    for (uint8_t k = 0; k <= d; k++) {
-        uint8_t r = d - k;
-        slide_px[k] = 8 - (uint8_t)(((uint16_t)r * r * 8) / ((uint16_t)d * d));
-    }
+    for (uint8_t k = 0; k <= d; k++) slide_px[k] = (uint8_t)((k * 8 + (d >> 1)) / d);
+}
+
+// The body piece for a cell whose neighbours along the body are directions a
+// and b: a straight tube, or the bend (left to down) flipped round.
+static uint8_t piece_attr;
+static uint8_t piece(uint8_t a, uint8_t b) {
+    piece_attr = PLAY_PAL_NOODLE;
+    if ((a ^ 1) == b) return a <= DIR_LEFT ? T_TUBE_H : T_TUBE_V;
+    if (a == DIR_RIGHT || b == DIR_RIGHT) piece_attr |= A_FLIPX;
+    if (a == DIR_UP || b == DIR_UP) piece_attr |= A_FLIPY;
+    return T_BEND;
+}
+
+// A sprite tile facing d: right, down and up are drawn; left flips right.
+static void face(uint8_t n, uint8_t right, uint8_t pal, uint8_t d) {
+    set_sprite_tile(n, d <= DIR_LEFT ? right : d == DIR_DOWN ? right + 2 : right + 4);
+    set_sprite_prop(n, pal | (d == DIR_LEFT ? S_FLIPX : 0));
+}
+
+// The way from cell (x, y) to its neighbour (nx, ny).
+static uint8_t dir_to(uint8_t x, uint8_t y, uint8_t nx, uint8_t ny) {
+    if (nx > x) return DIR_RIGHT;
+    if (nx < x) return DIR_LEFT;
+    return ny < y ? DIR_UP : DIR_DOWN;
 }
 
 // One end's sprite at room pixel (px, py), hidden off screen.
@@ -109,11 +135,13 @@ static void place(uint8_t n, uint8_t px, uint8_t py) {
 // they move with this frame's scroll.
 static void noodle_draw(void) {
     uint8_t back = 8 - slide_px[slide_k];
-    set_sprite_tile(SPR_HEAD, noodle_dir <= DIR_LEFT ? S_HEAD_R : S_HEAD_D);
-    set_sprite_prop(SPR_HEAD, SPR_PAL_NOODLE |
-        (noodle_dir == DIR_LEFT ? S_FLIPX : noodle_dir == DIR_UP ? S_FLIPY : 0));
+    face(SPR_HEAD, S_HEAD_R, SPR_PAL_NOODLE, noodle_dir);
     place(SPR_HEAD, (head_x << 3) + head_bx * back, (head_y << 3) + head_by * back);
-    uint8_t t = body_i - noodle_len + 1;
+    // The tip points along its slide; when it isn't sliding, along the body.
+    uint8_t t = body_i - noodle_len + 1, u = t + 1;
+    face(SPR_TAIL, S_TAIL_R, SPR_PAL_TAIL, tail_bx || tail_by
+        ? dir_to(body_x[t] + tail_bx, body_y[t] + tail_by, body_x[t], body_y[t])
+        : dir_to(body_x[t], body_y[t], body_x[u], body_y[u]));
     place(SPR_TAIL, (body_x[t] << 3) + tail_bx * back, (body_y[t] << 3) + tail_by * back);
 }
 
@@ -158,8 +186,6 @@ void play_enter(void) BANKED {
     palettes_play();
     banked_bkg_data(SCENE_TILES, BOARD_TILE_COUNT, board_tiles, BANK(board));
     banked_sprite_data(0, NOODLE_SPR_TILE_COUNT, noodle_spr_tiles, BANK(noodle_spr));
-    set_sprite_tile(SPR_TAIL, S_TAIL);
-    set_sprite_prop(SPR_TAIL, SPR_PAL_NOODLE);
     room_load();
     room_draw();
     // The HUD on the window, at the bottom (gfx.h HUD_WY). Its attributes are
@@ -180,7 +206,7 @@ void play_enter(void) BANKED {
     slide_table();
     slide_k = START_DELAY;  // at rest
     head_bx = head_by = tail_bx = tail_by = 0;
-    noodle_dir = DIR_RIGHT;
+    noodle_dir = move_dir = DIR_RIGHT;
     noodle_prev_dir = DIR_UP;  // so the first double-back bends upward
     noodle_len = START_LEN;
     // Tail first, so the head lands at body_i.
@@ -190,7 +216,7 @@ void play_enter(void) BANKED {
         body_x[body_i] = START_X - START_LEN + 1 + i;
         body_y[body_i] = START_Y;
         occupied[CELL(body_x[body_i], START_Y)] = 1;
-        put_now(body_x[body_i], START_Y, T_BODY, PLAY_PAL_NOODLE);
+        put_now(body_x[body_i], START_Y, T_TUBE_H, PLAY_PAL_NOODLE);
     }
     // The head's cell stays floor: the head is a sprite.
     put_now(START_X, START_Y, FLOOR_TILE(START_X, START_Y), PLAY_PAL_BOARD);
@@ -244,6 +270,7 @@ static void crash(void) {
     // The noodle greys out.
     pal_base_bg[(PLAY_PAL_NOODLE << 2) + 2] = RGB8(120, 120, 112);
     pal_base_obj[(SPR_PAL_NOODLE << 2) + 2] = RGB8(120, 120, 112);
+    pal_base_obj[(SPR_PAL_TAIL << 2) + 2] = RGB8(120, 120, 112);
     gfx_set_fade(0);
 }
 
@@ -282,7 +309,11 @@ static void step(void) {
         return;
     }
     noodle_parked = 0;
-    put(head_x, head_y, T_BODY, PLAY_PAL_NOODLE);
+    // The old head cell joins the body: a tube from where the head came in to
+    // where it goes now.
+    uint8_t tile = piece(move_dir ^ 1, noodle_dir);
+    put(head_x, head_y, tile, piece_attr);
+    move_dir = noodle_dir;
     head_bx = head_x - x;
     head_by = head_y - y;
     if (grows) {
@@ -290,9 +321,16 @@ static void step(void) {
         tail_bx = tail_by = 0;  // the tail waits a move
     } else {
         put(body_x[tail], body_y[tail], FLOOR_TILE(body_x[tail], body_y[tail]), PLAY_PAL_BOARD);
-        uint8_t t2 = tail + 1;
+        // The tip slides along straights. Into a bend it steps at once, pointing
+        // the new way: a straight tip can't follow the curve inside one cell.
+        uint8_t t2 = tail + 1, t3 = tail + 2;
         tail_bx = body_x[tail] - body_x[t2];
         tail_by = body_y[tail] - body_y[t2];
+        if (body_x[t3] - body_x[t2] != -tail_bx || body_y[t3] - body_y[t2] != -tail_by) {
+            tail_bx = tail_by = 0;
+            // The tip covers the whole cell now; the bend under it would show.
+            put(body_x[t2], body_y[t2], FLOOR_TILE(body_x[t2], body_y[t2]), PLAY_PAL_BOARD);
+        }
     }
     body_i++;
     body_x[body_i] = head_x = x;
