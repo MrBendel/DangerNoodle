@@ -65,6 +65,7 @@ uint8_t slide_px[START_DELAY + 1];
 // Where each end came from, as a step back from its cell (-1, 0, 1).
 int8_t head_bx, head_by, tail_bx, tail_by;
 uint8_t move_dir;  // the way the head went on its last move
+uint8_t head_turned;  // that move was a turn (the head rounds the bend)
 
 // The body, a ring of cells: the head at body_i, the tail noodle_len - 1 behind.
 // uint8_t indices wrap at 256 on their own.
@@ -136,7 +137,11 @@ static void place(uint8_t n, uint8_t px, uint8_t py) {
 static void noodle_draw(void) {
     uint8_t back = 8 - slide_px[slide_k];
     face(SPR_HEAD, S_HEAD_R, SPR_PAL_NOODLE, noodle_dir);
-    place(SPR_HEAD, (head_x << 3) + head_bx * back, (head_y << 3) + head_by * back);
+    // Round a bend, the head starts half out of it (at the old cell, facing the
+    // new way, it would cover the bend and stick out past the body) and goes
+    // at half pace.
+    uint8_t hb = head_turned ? back >> 1 : back;
+    place(SPR_HEAD, (head_x << 3) + head_bx * hb, (head_y << 3) + head_by * hb);
     // The tip points along its slide; when it isn't sliding, along the body.
     uint8_t t = body_i - noodle_len + 1, u = t + 1;
     face(SPR_TAIL, S_TAIL_R, SPR_PAL_TAIL, tail_bx || tail_by
@@ -207,6 +212,7 @@ void play_enter(void) BANKED {
     slide_k = START_DELAY;  // at rest
     head_bx = head_by = tail_bx = tail_by = 0;
     noodle_dir = move_dir = DIR_RIGHT;
+    head_turned = 0;
     noodle_prev_dir = DIR_UP;  // so the first double-back bends upward
     noodle_len = START_LEN;
     // Tail first, so the head lands at body_i.
@@ -312,6 +318,7 @@ static void step(void) {
     // The old head cell joins the body: a tube from where the head came in to
     // where it goes now.
     uint8_t tile = piece(move_dir ^ 1, noodle_dir);
+    head_turned = tile == T_BEND;
     put(head_x, head_y, tile, piece_attr);
     move_dir = noodle_dir;
     head_bx = head_x - x;

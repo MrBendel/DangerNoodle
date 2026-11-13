@@ -31,7 +31,9 @@ engine. Proposals, not decisions: change freely.
   (straight pieces and a flipped bend); the head and tip are open where they meet it,
   so they slide out of it with no seam. The tip has its own sprite palette whose
   color 3 is grass, masking the tube under its taper; into a bend it steps at once,
-  since a straight tip can't follow a curve inside one cell. In 8×16 sprite mode a
+  since a straight tip can't follow a curve inside one cell. Round a bend the head starts half
+  out of it and goes at half pace: at the old cell, facing the new way, it would
+  cover the bend and stick out past the body. In 8×16 sprite mode a
   vertical flip swaps the pair's halves, so up-facing pieces are drawn, not flipped.
 - **Parking** (decided 2026-11-12): running into its own body doesn't hurt; the noodle
   stops with its head against itself and waits for a turn that leads somewhere open

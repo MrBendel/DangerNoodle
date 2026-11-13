@@ -162,6 +162,16 @@ test('the head slides between cells at an even pace', () => {
   assert.ok(Math.max(...deltas) - Math.min(...deltas) <= 1, `an even pace: ${xs}`);
 });
 
+test('round a bend, the head starts half out of it', () => {
+  const emu = startGame();
+  const oam = emu.symbols.addr('shadow_OAM');
+  moves(emu.tap('UP'), 2);
+  const bendX = emu.v('head_x') * 8;
+  moves(emu.tap('RIGHT'));
+  const x = emu.read8(oam + 1) - 8;
+  assert.ok(x - bendX >= 4, `head ${x - bendX} px out of the bend cell`);
+});
+
 test('the head sprite sits on its cell, whichever way it faces', () => {
   const emu = startGame();
   const oam = emu.symbols.addr('shadow_OAM');
