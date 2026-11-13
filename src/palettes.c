@@ -43,6 +43,8 @@ void palettes_play(void) BANKED {
     set_bg(PLAY_PAL_FOOD, food);
     set_bg(PLAY_PAL_TEXT, hud);
     set_bg(BG_PAL_UI, hud);  // the window: the HUD
+    // The head and tail sprites (color 0 is transparent on sprites).
+    memcpy(&pal_base_obj[SPR_PAL_NOODLE << 2], noodle, 8);
 }
 
 // Menus: the title's colors for the compact and display fonts.

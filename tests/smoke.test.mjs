@@ -134,6 +134,61 @@ test('eating grows the noodle and scores', () => {
   assert.notDeepEqual([emu.v('food_x'), emu.v('food_y')], [emu.v('head_x'), emu.v('head_y')], 'new food somewhere else');
 });
 
+/** Eat n times: food put right in front of the head before each move. */
+function grow(emu, n) {
+  for (let i = 0; i < n; i++) {
+    emu.write8(emu.symbols.addr('food_x'), emu.v('head_x') + 1);
+    emu.write8(emu.symbols.addr('food_y'), emu.v('head_y'));
+    moves(emu);
+  }
+  return emu;
+}
+
+/** Tap a turn, then make n moves. */
+const turn = (emu, dir, n = 1) => moves(emu.tap(dir), n);
+
+test('the head slides between cells, eased', () => {
+  const emu = startGame();
+  moves(emu);
+  // The head sprite's x (shadow OAM, sprite 0) on each frame until the next move.
+  const oamX = () => emu.read8(emu.symbols.addr('shadow_OAM') + 1);
+  const xs = [oamX()];
+  const x0 = emu.v('head_x');
+  while (emu.v('head_x') === x0) xs.push(emu.idle(1) && oamX());
+  xs.pop();  // the frame of the next move
+  const deltas = xs.slice(1).map((x, i) => x - xs[i]);
+  assert.ok(deltas.every((d) => d >= 0) && xs.at(-1) - xs[0] <= 8, `forward, at most a cell: ${xs}`);
+  assert.ok(deltas.filter((d) => d > 0).length >= 4, `moves on most frames: ${xs}`);
+  assert.ok(deltas[0] > deltas.at(-1), `eases out: ${xs}`);
+});
+
+test('running into its own body parks it until a turn leads out', () => {
+  const emu = grow(startGame(), 3);  // 6 long, heading right
+  turn(emu, 'DOWN');
+  turn(emu, 'LEFT');
+  emu.tap('UP');  // straight up into its own body
+  emu.until((e) => e.v('noodle_parked'), 30, 'parking');
+  const at = [emu.v('head_x'), emu.v('head_y')];
+  emu.idle(60);
+  assert.deepEqual([emu.v('head_x'), emu.v('head_y')], at, 'it waits');
+  assert.equal(emu.v('dead_timer'), 0);
+  assert.equal(emu.v('noodle_len'), 6);
+  // A turn somewhere open goes at once.
+  emu.tap('LEFT').idle(1);
+  assert.deepEqual([emu.v('head_x'), emu.v('head_y')], [at[0] - 1, at[1]]);
+  assert.equal(emu.v('noodle_parked'), 0);
+});
+
+test('parked with no way out is a crash', () => {
+  const emu = grow(startGame(), 6);  // 9 long, heading right
+  // Coil into a pocket walled by its own body: down 2, left 2, up 1, right 1.
+  turn(emu, 'DOWN', 2);
+  turn(emu, 'LEFT', 2);
+  turn(emu, 'UP');
+  emu.tap('RIGHT');
+  emu.until((e) => e.v('dead_timer'), 30, 'the crash');
+});
+
 test('hitting a wall ends the game; START goes back to the title', () => {
   const emu = startGame();
   emu.until((e) => e.v('dead_timer'), 300, 'the crash');

@@ -135,6 +135,16 @@ export const BOARD_TILES = [
   body, headRight, transpose(headRight), food,  // T_BODY, T_HEAD_R, T_HEAD_D, T_FOOD
 ];
 
+// The noodle's moving ends as sprites (src/play.c slides them between cells):
+// 8x16 sprite mode, so each 8x8 picture is the top of a pair with a blank bottom.
+// Order matters: src/play.c names them (S_HEAD_R ...).
+const blank = Array(8).fill('........');
+export const NOODLE_SPRITE_TILES = [
+  headRight, blank,             // S_HEAD_R
+  transpose(headRight), blank,  // S_HEAD_D
+  body, blank,                  // S_TAIL
+];
+
 /** 8 strings -> 16 bytes of 2bpp. */
 export function asciiTile(rows, name = 'tile') {
   if (rows.length !== 8 || rows.some((r) => r.length !== 8)) throw new Error(`${name}: a tile is 8 rows of 8 characters`);

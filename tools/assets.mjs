@@ -31,7 +31,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import zlib from 'node:zlib';
 import { fileURLToPath } from 'node:url';
-import { BOARD_TILES, asciiTile } from './tile-art.mjs';
+import { BOARD_TILES, NOODLE_SPRITE_TILES, asciiTile } from './tile-art.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 export const GEN_DIR = path.join(ROOT, 'build', 'gen');
@@ -44,6 +44,8 @@ export const ASSETS = [
   { name: 'frame', bank: true, src: 'artwork/Fonts for GB Studio/light/frame.png' },
   // The board and the noodle: ASCII art in tools/tile-art.mjs (placeholders).
   { name: 'board', bank: true, ascii: BOARD_TILES, src: 'tools/tile-art.mjs' },
+  // The noodle's head and tail tip, which slide between cells as sprites.
+  { name: 'noodle_spr', bank: true, ascii: NOODLE_SPRITE_TILES, src: 'tools/tile-art.mjs' },
   // Sprites go here as Danger Noodle gets art, e.g.:
   // { name: 'spr_noodle', kind: 'sprite', bank: true, dir: 'artwork/noodle',
   //   anims: { slither_right: numbered('noodle right', 4) }, mirror: { slither_left: 'slither_right' } },

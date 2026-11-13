@@ -24,9 +24,15 @@ engine. Proposals, not decisions: change freely.
   enemy fills 2×2 cells, so a tight coil around one is a ring of 12 cells. A 16×16
   switch could press when any of its 4 cells is under the body, or need all 4
   (a "weighted" switch for free). Pushable blocks move a block (2 cells) at a time.
-- **Smooth movement (optional):** 8 px steps read fine at most speeds. For more polish,
-  the head and tail tip can be sprites that slide between cells every frame while the
-  body behind them stays background tiles that change once per step.
+- **Smooth movement** (done 2026-11-12): the head and tail tip are sprites that slide
+  between cells every frame, eased out (quick off the mark, settling in), while the
+  body behind them stays background tiles that change once per step. The cell the head
+  is entering stays floor until the next step makes it body.
+- **Parking** (decided 2026-11-12): running into its own body doesn't hurt; the noodle
+  stops with its head against itself and waits for a turn that leads somewhere open
+  (which goes at once, not at the next beat). Only a park with no way out (every
+  neighbouring cell wall or body, the tail's cell counting as open) costs: for now a
+  crash, later a heart. Walls still crash.
 - **The HUD is at the bottom, on the window layer** (as in RogueGB, decided there
   2026-10-12). The hardware draws the window from line WY down to the bottom of the
   screen for free; a top HUD would need a scanline interrupt every frame to switch the
@@ -100,7 +106,7 @@ The smallest slice that tests the dungeon rules:
 
 1. Auto-movement on the 8×8 grid at a slow speed, with corner pieces, in a room of
    16×16 floor blocks inside the walls.
-2. Hitting a wall or yourself bounces back and costs a tail segment; at just the head,
+2. Hitting a wall bounces back and costs a tail segment (your own body parks you); at just the head,
    lose a heart and restart the room at the length you entered with.
 3. HUD: hearts, current length, the length the room needs.
 4. Critters to eat (one segment each, a little faster each time).

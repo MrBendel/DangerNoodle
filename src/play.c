@@ -5,10 +5,15 @@
 // follows it round rooms bigger than the screen (room.c). The d-pad turns it
 // (two turns can be queued between moves; straight back makes a hairpin), food
 // makes it longer and a little faster, and running into a wall or itself ends
-// the game. START pauses.
+// the game. Running into its own body parks it: it waits, head against itself,
+// until a turn leads somewhere open; only a park with no way out is a crash.
+// START pauses.
 //
-// Each move changes at most four cells (old head -> body, new head, tail ->
-// floor, new food), queued with gfx_strip_attr and written in vblank. The whole
+// The body is background tiles; each move changes at most three cells (old
+// head -> body, tail -> floor, new food), queued with gfx_strip_attr and written
+// in vblank. The head and the tail tip are sprites that slide (eased) from cell
+// to cell between moves, so the noodle glides instead of jumping 8 px. The cell
+// the head is entering stays floor until the next move makes it body. The whole
 // room is in the background map (room.c), so a cell's map tile is its own.
 #include <gb/gb.h>
 #include <gb/cgb.h>
@@ -21,6 +26,7 @@
 #include "game.h"
 #include "room.h"
 #include "board.h"
+#include "noodle_spr.h"
 
 #define START_X 7
 #define START_Y 8
@@ -40,6 +46,20 @@ uint8_t step_delay, step_timer;
 uint8_t paused;
 uint8_t dead_timer;
 uint8_t food_eaten;
+uint8_t noodle_parked;  // up against its own body, waiting for a way out
+
+// Sprites: the head and the tail tip (8x16 mode, the art in the top half).
+#define SPR_HEAD 0
+#define SPR_TAIL 1
+#define S_HEAD_R 0
+#define S_HEAD_D 2
+#define S_TAIL 4
+// The slide: frames since the last move (up to step_delay), and how far (px)
+// the ends have moved by then, eased out: quick off the mark, settling in.
+uint8_t slide_k;
+uint8_t slide_px[START_DELAY + 1];
+// Where each end came from, as a step back from its cell (-1, 0, 1).
+int8_t head_bx, head_by, tail_bx, tail_by;
 
 // The body, a ring of cells: the head at body_i, the tail noodle_len - 1 behind.
 // uint8_t indices wrap at 256 on their own.
@@ -67,11 +87,34 @@ static void put(uint8_t x, uint8_t y, uint8_t tile, uint8_t attr) {
     t[STRIP_MAX_LEN] = attr;
 }
 
-static uint8_t head_tile(void) {
-    return noodle_dir <= DIR_LEFT ? T_HEAD_R : T_HEAD_D;
+// The eased slide for the current speed: 8 - 8(1 - k/d)^2 px after k frames.
+// Only when the speed changes, so the division is fine.
+static void slide_table(void) {
+    uint8_t d = step_delay;
+    for (uint8_t k = 0; k <= d; k++) {
+        uint8_t r = d - k;
+        slide_px[k] = 8 - (uint8_t)(((uint16_t)r * r * 8) / ((uint16_t)d * d));
+    }
 }
-static uint8_t head_attr(void) {
-    return PLAY_PAL_NOODLE | (noodle_dir == DIR_LEFT ? A_FLIPX : noodle_dir == DIR_UP ? A_FLIPY : 0);
+
+// One end's sprite at room pixel (px, py), hidden off screen.
+static void place(uint8_t n, uint8_t px, uint8_t py) {
+    int16_t sx = (int16_t)px - scroll_x;
+    int16_t sy = (int16_t)py - scroll_y;
+    if (sx <= -8 || sx >= 160 || sy <= -8 || sy >= HUD_WY) move_sprite(n, 0, 0);
+    else move_sprite(n, (uint8_t)(sx + 8), (uint8_t)(sy + 16));
+}
+
+// The head and tail sprites, part way along their slide. After the camera, so
+// they move with this frame's scroll.
+static void noodle_draw(void) {
+    uint8_t back = 8 - slide_px[slide_k];
+    set_sprite_tile(SPR_HEAD, noodle_dir <= DIR_LEFT ? S_HEAD_R : S_HEAD_D);
+    set_sprite_prop(SPR_HEAD, SPR_PAL_NOODLE |
+        (noodle_dir == DIR_LEFT ? S_FLIPX : noodle_dir == DIR_UP ? S_FLIPY : 0));
+    place(SPR_HEAD, (head_x << 3) + head_bx * back, (head_y << 3) + head_by * back);
+    uint8_t t = body_i - noodle_len + 1;
+    place(SPR_TAIL, (body_x[t] << 3) + tail_bx * back, (body_y[t] << 3) + tail_by * back);
 }
 
 static void hud_score(void) {
@@ -114,6 +157,9 @@ found:
 void play_enter(void) BANKED {
     palettes_play();
     banked_bkg_data(SCENE_TILES, BOARD_TILE_COUNT, board_tiles, BANK(board));
+    banked_sprite_data(0, NOODLE_SPR_TILE_COUNT, noodle_spr_tiles, BANK(noodle_spr));
+    set_sprite_tile(SPR_TAIL, S_TAIL);
+    set_sprite_prop(SPR_TAIL, SPR_PAL_NOODLE);
     room_load();
     room_draw();
     // The HUD on the window, at the bottom (gfx.h HUD_WY). Its attributes are
@@ -129,7 +175,11 @@ void play_enter(void) BANKED {
     paused = 0;
     dead_timer = 0;
     dir_queued = 0;
+    noodle_parked = 0;
     step_delay = step_timer = START_DELAY;
+    slide_table();
+    slide_k = START_DELAY;  // at rest
+    head_bx = head_by = tail_bx = tail_by = 0;
     noodle_dir = DIR_RIGHT;
     noodle_prev_dir = DIR_UP;  // so the first double-back bends upward
     noodle_len = START_LEN;
@@ -142,12 +192,14 @@ void play_enter(void) BANKED {
         occupied[CELL(body_x[body_i], START_Y)] = 1;
         put_now(body_x[body_i], START_Y, T_BODY, PLAY_PAL_NOODLE);
     }
+    // The head's cell stays floor: the head is a sprite.
+    put_now(START_X, START_Y, FLOOR_TILE(START_X, START_Y), PLAY_PAL_BOARD);
     head_x = START_X;
     head_y = START_Y;
-    put_now(head_x, head_y, head_tile(), head_attr());
     place_food(1);
     hud_draw();
     camera_update(1);
+    noodle_draw();
 }
 
 // The cell next to the head in direction d, in ahead_x/ahead_y.
@@ -191,7 +243,20 @@ static void crash(void) {
     sfx_play(SFX_DEATH);
     // The noodle greys out.
     pal_base_bg[(PLAY_PAL_NOODLE << 2) + 2] = RGB8(120, 120, 112);
+    pal_base_obj[(SPR_PAL_NOODLE << 2) + 2] = RGB8(120, 120, 112);
     gfx_set_fade(0);
+}
+
+// Parked with no way out: every cell next to the head is a wall or body (the
+// tail's cell counts as open: it moves away as the head moves in).
+static uint8_t trapped(uint8_t tail) {
+    for (uint8_t d = 0; d < 4; d++) {
+        ahead(d);
+        if (!OPEN(ahead_x, ahead_y)) continue;
+        if (!occupied[CELL(ahead_x, ahead_y)]) return 0;
+        if (ahead_x == body_x[tail] && ahead_y == body_y[tail]) return 0;
+    }
+    return 1;
 }
 
 static void step(void) {
@@ -211,23 +276,38 @@ static void step(void) {
     if (!grows) occupied[CELL(body_x[tail], body_y[tail])] = 0;
     if (!OPEN(x, y) || occupied[CELL(x, y)]) {
         if (!grows) occupied[CELL(body_x[tail], body_y[tail])] = 1;
-        crash();
+        // A wall is a crash. Its own body parks it, unless there's no way out.
+        if (!OPEN(x, y) || trapped(tail)) crash();
+        else noodle_parked = 1;
         return;
     }
+    noodle_parked = 0;
     put(head_x, head_y, T_BODY, PLAY_PAL_NOODLE);
-    if (grows) noodle_len++;
-    else put(body_x[tail], body_y[tail], FLOOR_TILE(body_x[tail], body_y[tail]), PLAY_PAL_BOARD);
+    head_bx = head_x - x;
+    head_by = head_y - y;
+    if (grows) {
+        noodle_len++;
+        tail_bx = tail_by = 0;  // the tail waits a move
+    } else {
+        put(body_x[tail], body_y[tail], FLOOR_TILE(body_x[tail], body_y[tail]), PLAY_PAL_BOARD);
+        uint8_t t2 = tail + 1;
+        tail_bx = body_x[tail] - body_x[t2];
+        tail_by = body_y[tail] - body_y[t2];
+    }
     body_i++;
     body_x[body_i] = head_x = x;
     body_y[body_i] = head_y = y;
     occupied[CELL(x, y)] = 1;
-    put(x, y, head_tile(), head_attr());
+    slide_k = 0;
     if (ate) {
         score++;
         if (score > best_score) best_score = score;
         if (++food_eaten == FOOD_PER_SPEEDUP) {
             food_eaten = 0;
-            if (step_delay > MIN_DELAY) step_delay--;
+            if (step_delay > MIN_DELAY) {
+                step_delay--;
+                slide_table();
+            }
         }
         sfx_play(SFX_EAT);
         place_food(0);
@@ -251,9 +331,13 @@ void play_update(void) BANKED {
     if (p & J_LEFT) queue_turn(DIR_LEFT);
     if (p & J_UP) queue_turn(DIR_UP);
     if (p & J_DOWN) queue_turn(DIR_DOWN);
+    // Parked, a turn goes at once rather than at the next beat.
+    if (noodle_parked && dir_queued) step_timer = 1;
     if (!--step_timer) {
         step_timer = step_delay;
         step();
     }
+    if (slide_k < step_delay) slide_k++;
     camera_update(0);
+    noodle_draw();
 }
