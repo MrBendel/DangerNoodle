@@ -131,8 +131,8 @@ void palettes_title(void) BANKED;
 #define PLAY_PAL_MARK 5  // switches: a shape's stones and buttons, up
 #define PLAY_PAL_LIT 7   // a switch held down (latched, or timed)
 void palettes_play(void) BANKED;
-// The stones light up: the shape is made and the door opens.
-void palettes_marks_lit(void) BANKED;
+// The stones light up (on): the room is solved, its shutters open. Off: grey.
+void palettes_marks_lit(uint8_t on) BANKED;
 // Menus (game over): the title's colors.
 void palettes_menu(void) BANKED;
 

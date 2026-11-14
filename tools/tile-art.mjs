@@ -195,6 +195,82 @@ const doorOpen = [
   '33333333',
   '33333333',
 ];
+// Locked: a slab with a keyhole down the middle (its right half is a flip).
+const doorLock = [
+  '22222222',
+  '13333333',
+  '13111111',
+  '13111133',
+  '13111133',
+  '13111113',
+  '13111113',
+  '33333333',
+];
+// The same three in the near (bottom) wall, its left half: an 8 px wall, the
+// edge along its top.
+const doorSShut = [
+  '33333333',
+  '13313313',
+  '13313313',
+  '23323323',
+  '13313313',
+  '13313313',
+  '13313313',
+  '13313313',
+];
+const doorSOpen = Array(8).fill('23333333');
+const doorSLock = [
+  '33333333',
+  '21111111',
+  '21111133',
+  '21111133',
+  '21111113',
+  '21111113',
+  '21111111',
+  '22222222',
+];
+// And in a side wall's inner column, its top half (the bottom is a flip in Y,
+// the right wall's a flip in X): bars across the way through.
+const doorWShut = [
+  '22222222',
+  '33333333',
+  '11111113',
+  '33333333',
+  '11111113',
+  '33333333',
+  '11111113',
+  '33333333',
+];
+const doorWOpen = ['22222222', ...Array(7).fill('33333333')];
+const doorWLock = [
+  '22222222',
+  '21111113',
+  '21111113',
+  '21111113',
+  '21111113',
+  '21111113',
+  '21133113',
+  '21133113',
+];
+// A small key (gold, on the lit stones' palette): 3 outline, 2 metal, 1 shine.
+const key = [
+  '........',
+  '.333....',
+  '3212333.',
+  '32.22223',
+  '3222323.',
+  '.333.3..',
+  '........',
+  '........',
+];
+// The dungeon map (on the window, the HUD's palette: 0 dark, 2 green, 3 light):
+// rooms seen, the room you're in, and the doors between (a dotted one is shut).
+const mapRoom = Array(8).fill('22222222');
+const mapHere = Array(8).fill('33333333');
+const mapDoorH = ['........', '........', '........', '........', '........', '........', '22222222', '22222222'];
+const mapShutH = ['........', '........', '........', '........', '........', '........', '22..22..', '22..22..'];
+const mapDoorV = Array(8).fill('...22...');
+const mapShutV = ['...22...', '...22...', '........', '........', '...22...', '...22...', '........', '........'];
 
 // Buttons: 16x16 stones raised from the floor (1 face, 2 glyph and shade, 3
 // rim), on the stones' palette (lit: pressed). A glyph in the middle says what
@@ -238,6 +314,11 @@ export const BOARD_TILES = [
   mark, doorShut, doorOpen,  // T_MARK, T_DOOR_SHUT, T_DOOR_OPEN
   // T_BUTTON: 4 tiles each (TL TR BL BR), in BUTTON_* order (src/room.h)
   ...['plain', 'one', 'two', 'three', 'head', 'tail', 'heavy', 'timed'].flatMap((g) => quarters(button(glyphs[g]), g)),
+  doorLock,                         // T_DOOR_LOCK
+  doorSShut, doorSOpen, doorSLock,  // T_DOORS_SHUT ... (the near wall)
+  doorWShut, doorWOpen, doorWLock,  // T_DOORW_SHUT ... (a side wall)
+  key,                              // T_KEY
+  mapRoom, mapHere, mapDoorH, mapDoorV, mapShutH, mapShutV,  // T_MAP_ROOM ...
 ];
 
 // The noodle's moving ends as sprites (src/play.c slides them between cells):

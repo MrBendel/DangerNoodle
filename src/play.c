@@ -1,18 +1,20 @@
 #pragma bank 255
-// Play: the noodle in a demo room. It moves a cell (8x8) at a time inside the
-// room's walls, over a floor of 16x16 blocks (game.h: the two grids), and the
-// camera follows it round rooms bigger than the screen (room.c). The d-pad
+// Play: the noodle in the dungeon (room.c). It moves a cell (8x8) at a time
+// inside a room's walls, over a floor of 16x16 blocks (game.h: the two grids),
+// and the camera follows it round rooms bigger than the screen. The d-pad
 // turns it (two turns can be queued between moves; straight back makes a
 // hairpin), food makes it longer and a little faster, and running into a wall
-// ends the game. Running into its own body (or an armored beetle) parks it: it
-// waits until a turn leads somewhere open; only a park with no way out is a
-// crash. START pauses; SELECT skips to the next room.
+// ends the game. Running into its own body, an armored beetle or a closed door
+// parks it: it waits until a turn leads somewhere open; only a park with no
+// way out is a crash. START pauses and shows the dungeon's map.
 //
-// Each room is a puzzle (room.c): switches the body presses, beetles to coil
-// and eat. When every switch is down at once and every beetle eaten, the door
-// in the back wall opens; through it is the next room, the score kept. The HUD
-// shows the room's name at first, then the score, the noodle's length and the
-// length the room needs.
+// Each room is a puzzle: switches the body presses, beetles to coil and eat.
+// When every switch is down at once and every beetle eaten, the room is solved
+// for good and its shutters open (and its key, if it has one, appears). A key
+// opens a locked door. Through a door, the next room slides in (a bigger room
+// fades in instead) and the noodle feeds in through the door on its far side,
+// its length kept. The HUD shows the room's name at first, then the score, the
+// keys, the noodle's length and the length the room needs.
 //
 // The body is background tiles, a tube of straight and bent pieces; each move
 // changes a few cells (old head -> body, tail -> floor, new food), queued with
@@ -40,6 +42,7 @@
 #define FOOD_PER_SPEEDUP 4
 #define DEATH_FRAMES 60  // the crash shows this long before the game over screen
 #define EXIT_FRAMES 10   // the head slides into the doorway, then the next room
+#define SLIDE_SPEED 4    // px a frame the next room slides in (a screen: 40 frames)
 #define NAME_FRAMES 120  // the HUD shows the room's name this long
 #define TIMED_FRAMES 240 // a timed button stays down this long after the body leaves
 // Beetles.
@@ -66,9 +69,17 @@ uint8_t noodle_parked;  // up against its own body, waiting for a way out
 uint8_t grow_pending;   // segments still to grow: the tail waits a move each
 uint8_t door_open;
 uint8_t exit_timer;     // counts up once the head is in the doorway (0: not yet)
-uint8_t room_cleared;   // came through a door (or SELECT): keep the score
-uint8_t name_timer;     // the HUD shows the room's name while this counts down
+uint8_t exit_side, exit_off;  // the door it went through (DIR_*), and which half
+uint8_t play_fresh;     // a new game: the dungeon starts over (title.c sets it)
+uint8_t entry_side = 0xFF, entry_off;
+uint8_t carry_len;      // the length it brings into the next room
+uint8_t name_timer;     // the HUD shows a note (at first the room's name) while this counts down
+const char *hud_note;
 char room_title[ROOM_NAME_MAX + 1];
+// The next room sliding in (slide_dir: the way, DIR_*; 0xFF: none): slide_t px
+// so far, and its lines (columns or rows, in the order they come into view)
+// drawn so far.
+uint8_t slide_dir = 0xFF, slide_t, slide_line;
 
 // Switches (game.h; their cells come from room.c).
 uint8_t sw_cover[SW_MAX], sw_down[SW_MAX];
@@ -112,8 +123,7 @@ uint8_t head_turned;  // that move was a turn (the head rounds the bend)
 // uint8_t indices wrap at 256 on their own.
 uint8_t body_x[256], body_y[256];
 uint8_t body_i;
-// Each cell, by (y << 5) | x: bit 0, the noodle covers it; bits 1-4, the
-// switch it belongs to (its index + 1; 0: none).
+// Each cell's body and switch bits (game.h).
 #define OCC_BODY 1
 #define SW_AT(c) ((occupied[c] >> 1) & 15)
 uint8_t occupied[ROOM_TH_MAX << 5];
@@ -121,10 +131,17 @@ uint8_t occupied[ROOM_TH_MAX << 5];
 uint8_t dir_queue[2], dir_queued;
 
 #define CELL(x, y) (((uint16_t)(y) << 5) | (x))
+#define VIEW_PX_W 160  // the playfield
+#define VIEW_PX_H (PLAYFIELD_TH * 8)
 #define OPEN(x, y) ((x) >= ROOM_X0 && (x) <= room_x1 && (y) >= ROOM_Y0 && (y) <= room_y1)
 #define TAIL() ((uint8_t)(body_i - noodle_len + 1))
 
+static void cover_in(uint8_t x, uint8_t y);
+
+// Room cell (x, y) is map tile (x + map_ox, y + map_oy), wrapping.
 static void put_now(uint8_t x, uint8_t y, uint8_t tile, uint8_t attr) {
+    x = (x + map_ox) & 31;
+    y = (y + map_oy) & 31;
     VBK_REG = 1;
     set_bkg_tile_xy(x, y, attr);
     VBK_REG = 0;
@@ -133,22 +150,33 @@ static void put_now(uint8_t x, uint8_t y, uint8_t tile, uint8_t attr) {
 
 // One cell, queued for the next vblank.
 static void put(uint8_t x, uint8_t y, uint8_t tile, uint8_t attr) {
-    uint8_t *t = gfx_strip_attr(x, y, 0, 1);
+    uint8_t *t = gfx_strip_attr(x + map_ox, y + map_oy, 0, 1);
     t[0] = tile;
     t[STRIP_MAX_LEN] = attr;
 }
 
-// The floor of cell (x, y) again, as the tail leaves it: grass, or a switch's
-// stone or button (lit while it's held down).
+// What cell (x, y) shows without the body, again (as the tail leaves it, or
+// when a switch or door changes): grass, a switch's stone or button (lit while
+// it's held down), food, the key, a door.
 static void put_floor(uint8_t x, uint8_t y) {
-    uint8_t id = SW_AT(CELL(x, y));
-    if (!id) {
-        put(x, y, FLOOR_TILE(x, y), PLAY_PAL_BOARD);
-        return;
+    uint8_t t = room_cell(x, y);
+    put(x, y, t, cell_attr);
+}
+
+// A side's door, after it opens.
+static void door_redraw(uint8_t d) {
+    uint8_t x, y;
+    if (d >= DIR_UP) {
+        x = door_x;
+        y = d == DIR_UP ? DOOR_Y : room_th - 1;
+        put_floor(x, y);
+        put_floor(x + 1, y);
+    } else {
+        x = d == DIR_LEFT ? 1 : room_tw - 2;
+        y = door_y;
+        put_floor(x, y);
+        put_floor(x, y + 1);
     }
-    id--;
-    if (sw_flags[id] & SW_STONES) put(x, y, sw_tile[id], PLAY_PAL_MARK);
-    else put(x, y, sw_tile[id] + (x & 1) + ((y & 1) << 1), sw_down[id] ? PLAY_PAL_LIT : PLAY_PAL_MARK);
 }
 
 // A button's cells that show (not under the body), after it goes up or down.
@@ -207,8 +235,8 @@ static uint8_t dir_to(uint8_t x, uint8_t y, uint8_t nx, uint8_t ny) {
 
 // A sprite at room pixel (px, py), hidden off screen.
 static void place(uint8_t n, uint8_t px, uint8_t py) {
-    int16_t sx = (int16_t)px - scroll_x;
-    int16_t sy = (int16_t)py - scroll_y;
+    int16_t sx = (int16_t)px - view_x;
+    int16_t sy = (int16_t)py - view_y;
     if (sx <= -8 || sx >= 160 || sy <= -8 || sy >= HUD_WY) move_sprite(n, 0, 0);
     else move_sprite(n, (uint8_t)(sx + 8), (uint8_t)(sy + 16));
 }
@@ -263,116 +291,179 @@ static void enemies_draw(void) {
 
 static void hud_score(void) {
     if (paused || name_timer) return;
-    win_number(6, 0, score, 4, 1);
-    if (!door_open) win_number(15, 0, noodle_len, 2, 1);
+    win_number(0, 0, score, 4, 1);
+    win_number(7, 0, keys, 1, 1);
+    win_number(15, 0, noodle_len, 2, 1);
 }
 
-// The HUD row: the room's name at first, then the score and the length; or
-// "PAUSED" while paused.
+// The HUD row: a note for a moment (the room's name as it comes in, a door
+// opening), then the score, the keys and the length.
 static void hud_draw(void) {
+    if (paused) return;  // the map is up
     fill_win_rect(0, 0, SCREEN_TW, HUD_ROWS, 0);
-    if (paused) {
-        win_text(7, 0, "PAUSED");
-        return;
-    }
     if (name_timer) {
-        win_text(1, 0, room_title);
+        win_text(1, 0, hud_note);
         return;
     }
-    // SCORE 0000 LEN 03/08: the length, and what the room needs.
-    win_text(0, 0, "SCORE");
-    if (door_open) win_text(11, 0, "DOOR OPEN");
-    else {
-        win_text(11, 0, "LEN");
+    // 0000  K1   LEN 03/08: the length, and what the room needs (until it's solved).
+    set_win_tile_xy(6, 0, (uint8_t)T_KEY);
+    win_text(11, 0, "LEN");
+    if (!door_open) {
         win_text(17, 0, "/");
         win_number(18, 0, room_need, 2, 1);
     }
     hud_score();
 }
 
-// Food on a free cell (not the body, a switch or a beetle): a few random tries,
-// then the first free cell. None in a room that has no food.
-static void place_food(uint8_t now) {
+static void note(const char *s) {
+    hud_note = s;
+    name_timer = NAME_FRAMES;
+    hud_draw();
+}
+
+// Food on a free cell (not the body, a switch, a beetle or the key): a few
+// random tries, then the first free cell. None in a room that has no food.
+// later: leave its tile to the room's drawing (room_cell) instead of queueing it.
+static void place_food(uint8_t later) {
     uint8_t x, y, tries = 64;
-    if (!room_food) goto none;
+    food_x = food_y = 0xFF;
+    if (!room_food) return;
     do {
         x = rand() & 31;
         y = rand() & 31;
-        if (OPEN(x, y) && !occupied[CELL(x, y)] && !enemy_at(x, y)) goto found;
+        if (OPEN(x, y) && !occupied[CELL(x, y)] && !enemy_at(x, y) && (x != key_x || y != key_y)) goto found;
     } while (--tries);
     for (y = ROOM_Y0; y <= room_y1; y++)
         for (x = ROOM_X0; x <= room_x1; x++)
-            if (!occupied[CELL(x, y)] && !enemy_at(x, y)) goto found;
-none:
-    food_x = food_y = 0xFF;  // the board is full
-    return;
+            if (!occupied[CELL(x, y)] && !enemy_at(x, y) && (x != key_x || y != key_y)) goto found;
+    return;  // the board is full
 found:
     food_x = x;
     food_y = y;
-    if (now) put_now(x, y, T_FOOD, PLAY_PAL_FOOD);
-    else put(x, y, T_FOOD, PLAY_PAL_FOOD);
+    if (!later) put(x, y, T_FOOD, PLAY_PAL_FOOD);
+}
+
+// A room starts (room_load has run): its switches, beetles and key as the
+// dungeon left them, and the noodle at its start (a new game) or in the door
+// it came in by (entry_side), feeding in from there: two cells in, the rest of
+// its length still to come. Draws nothing: the room's drawing (room_cell)
+// covers all of it but the body.
+static void room_begin(void) {
+    uint8_t done = room_done[room_id];
+    memset(occupied, 0, sizeof(occupied));
+    for (uint8_t i = 0; i < sw_count; i++) {
+        for (uint8_t k = sw_first[i], e = k + sw_n[i]; k < e; k++)
+            occupied[CELL(sw_cx[k], sw_cy[k])] = (i + 1) << 1;
+        sw_cover[i] = sw_was[i] = sw_timer[i] = 0;
+        sw_down[i] = done;
+    }
+    sw_next = 1;
+    for (uint8_t i = 0; i < ENEMY_MAX; i++) {
+        en_state[i] = !done && i < en_count ? EN_ARMORED : EN_NONE;
+        en_timer[i] = ENEMY_BEAT;
+        en_bite[i] = BITE_EVERY;
+        en_coiled[i] = en_k[i] = en_step[i] = 0;
+        en_bx[i] = en_by[i] = 0;
+    }
+    if (!sw_count && !en_count) done = room_done[room_id] = 1;  // nothing to solve
+    door_open = done;
+    room_seen[room_id] = 1;
+    key_shown = key_x != 0xFF && !key_got[room_id] && done;
+    exit_timer = 0;
+    paused = 0;
+    dead_timer = 0;
+    dir_queued = 0;
+    noodle_parked = 0;
+    step_timer = step_delay;
+    slide_k = START_DELAY;  // at rest
+    head_bx = head_by = tail_bx = tail_by = 0;
+    head_turned = 0;
+    body_i = 0xFF;
+    if (entry_side == 0xFF) {
+        // A new game: START_LEN cells heading right, tail first so the head
+        // lands at body_i (play_enter draws them).
+        noodle_dir = DIR_RIGHT;
+        noodle_prev_dir = DIR_UP;  // so the first double-back bends upward
+        noodle_len = START_LEN;
+        grow_pending = room_start_len - START_LEN;
+        head_x = room_start_x;
+        head_y = room_start_y;
+        for (uint8_t i = 0; i < START_LEN; i++) {
+            body_i++;
+            body_x[body_i] = head_x - START_LEN + 1 + i;
+            body_y[body_i] = head_y;
+        }
+    } else {
+        // Through a door: the tail in the doorway, the head just inside.
+        uint8_t tx, ty, d = entry_side;
+        if (d >= DIR_UP) {
+            tx = head_x = door_x + entry_off;
+            ty = d == DIR_UP ? DOOR_Y : room_th - 1;
+            head_y = d == DIR_UP ? ROOM_Y0 : room_y1;
+            noodle_dir = d == DIR_UP ? DIR_DOWN : DIR_UP;
+            noodle_prev_dir = DIR_RIGHT;
+        } else {
+            ty = head_y = door_y + entry_off;
+            tx = d == DIR_LEFT ? 1 : room_tw - 2;
+            head_x = d == DIR_LEFT ? ROOM_X0 : room_x1;
+            noodle_dir = d == DIR_LEFT ? DIR_RIGHT : DIR_LEFT;
+            noodle_prev_dir = DIR_UP;
+        }
+        body_i = 1;
+        body_x[0] = tx;
+        body_y[0] = ty;
+        body_x[1] = head_x;
+        body_y[1] = head_y;
+        noodle_len = 2;
+        // The room feeds you up to the length its puzzle starts from.
+        if (carry_len < room_start_len) carry_len = room_start_len;
+        grow_pending = carry_len - 2;
+        cover_in(head_x, head_y);
+    }
+    move_dir = noodle_dir;
+    for (uint8_t i = body_i - noodle_len + 1; i != (uint8_t)(body_i + 1); i++)
+        occupied[CELL(body_x[i], body_y[i])] |= OCC_BODY;
+    place_food(1);
+    room_name(room_id, room_title);
+    hud_note = room_id == ROOM_GOAL ? "DUNGEON CLEAR!" : room_title;
+    name_timer = NAME_FRAMES;
 }
 
 void play_enter(void) BANKED {
     palettes_play();
     banked_bkg_data(SCENE_TILES, BOARD_TILE_COUNT, board_tiles, BANK(board));
     banked_sprite_data(0, NOODLE_SPR_TILE_COUNT, noodle_spr_tiles, BANK(noodle_spr));
+    if (play_fresh) {
+        // A new game: the dungeon as it was, the noodle at the room's start.
+        play_fresh = 0;
+        memset(room_done, 0, sizeof(room_done));
+        memset(room_seen, 0, sizeof(room_seen));
+        memset(room_locks, 0, sizeof(room_locks));
+        memset(key_got, 0, sizeof(key_got));
+        keys = 0;
+        score = 0;
+        food_eaten = 0;
+        step_delay = START_DELAY;
+        entry_side = 0xFF;
+        initrand(game_seed);
+    }
+    // Drawn whole at the top-left of the map: a new game, or a bigger room
+    // fading in.
+    map_ox = map_oy = 0;
+    slide_dir = 0xFF;
     room_load();
+    room_begin();
+    palettes_marks_lit(door_open);
     room_draw();
-    room_name(room_id, room_title);
+    // The body (the head's cell stays floor: the head is a sprite; through a
+    // door, the tail tip is in the doorway and the body still to come).
+    if (entry_side == 0xFF)
+        for (uint8_t i = body_i - noodle_len + 1; i != body_i; i++) put_now(body_x[i], body_y[i], T_TUBE_H, PLAY_PAL_NOODLE);
     // The HUD on the window, at the bottom (gfx.h HUD_WY). Its attributes are
     // BG_PAL_UI everywhere (gfx_init).
     move_win(7, HUD_WY);
     SHOW_WIN;
     gfx_sprite_split(HUD_WY);  // sprites stop above the HUD
-
-    memset(occupied, 0, sizeof(occupied));
-    for (uint8_t i = 0; i < sw_count; i++) {
-        for (uint8_t k = sw_first[i], e = k + sw_n[i]; k < e; k++)
-            occupied[CELL(sw_cx[k], sw_cy[k])] = (i + 1) << 1;
-        sw_cover[i] = sw_down[i] = sw_was[i] = sw_timer[i] = 0;
-    }
-    sw_next = 1;
-    for (uint8_t i = 0; i < ENEMY_MAX; i++) {
-        en_state[i] = i < en_count ? EN_ARMORED : EN_NONE;
-        en_timer[i] = ENEMY_BEAT;
-        en_bite[i] = BITE_EVERY;
-        en_coiled[i] = en_k[i] = en_step[i] = 0;
-        en_bx[i] = en_by[i] = 0;
-    }
-    door_open = exit_timer = 0;
-    name_timer = NAME_FRAMES;
-    initrand(game_seed);
-    if (!room_cleared) score = 0;
-    room_cleared = 0;
-    food_eaten = 0;
-    paused = 0;
-    dead_timer = 0;
-    dir_queued = 0;
-    noodle_parked = 0;
-    step_delay = step_timer = START_DELAY;
-    slide_k = START_DELAY;  // at rest
-    head_bx = head_by = tail_bx = tail_by = 0;
-    noodle_dir = move_dir = DIR_RIGHT;
-    head_turned = 0;
-    noodle_prev_dir = DIR_UP;  // so the first double-back bends upward
-    noodle_len = START_LEN;
-    grow_pending = room_start_len - START_LEN;
-    // Tail first, so the head lands at body_i.
-    head_x = room_start_x;
-    head_y = room_start_y;
-    body_i = 0xFF;
-    for (uint8_t i = 0; i < START_LEN; i++) {
-        uint8_t x = head_x - START_LEN + 1 + i;
-        body_i++;
-        body_x[body_i] = x;
-        body_y[body_i] = head_y;
-        occupied[CELL(x, head_y)] |= OCC_BODY;
-        put_now(x, head_y, T_TUBE_H, PLAY_PAL_NOODLE);
-    }
-    // The head's cell stays floor: the head is a sprite.
-    put_now(head_x, head_y, FLOOR_TILE(head_x, head_y), PLAY_PAL_BOARD);
-    place_food(1);
     hud_draw();
     camera_update(1);
     noodle_draw();
@@ -518,6 +609,14 @@ static void check_coils(void) {
     }
 }
 
+static void take_key(void) {
+    key_shown = 0;
+    key_got[room_id] = 1;
+    keys++;
+    sfx_play(SFX_KEY);
+    note("GOT A KEY");
+}
+
 static void eat_enemy(uint8_t i) {
     en_state[i] = EN_NONE;
     grow_pending += EAT_GROW;
@@ -526,16 +625,22 @@ static void eat_enemy(uint8_t i) {
     sfx_play(SFX_EAT);
 }
 
-// The door opens: every switch is down and every beetle eaten. The stones and
-// buttons glow.
+// Solved: every switch is down and every beetle eaten. The room stays solved,
+// its shutters open, the stones and buttons glow, and its key comes out.
 static void unlock(void) {
     door_open = 1;
-    put(door_x, DOOR_Y, T_DOOR_OPEN, PLAY_PAL_WALL);
-    put(door_x + 1, DOOR_Y, T_DOOR_OPEN, PLAY_PAL_WALL | A_FLIPX);
-    palettes_marks_lit();
+    room_done[room_id] = 1;
+    for (uint8_t d = 0; d < 4; d++)
+        if (room_doors[d]) door_redraw(d);
+    palettes_marks_lit(1);
     gfx_set_fade(0);
     sfx_play(SFX_UNLOCK);
-    hud_draw();
+    note("DOOR OPEN");
+    if (key_x != 0xFF && !key_got[room_id]) {
+        key_shown = 1;
+        if (head_x == key_x && head_y == key_y) take_key();
+        else if (!(occupied[CELL(key_x, key_y)] & OCC_BODY)) put_floor(key_x, key_y);
+    }
 }
 
 static void step(void) {
@@ -549,8 +654,11 @@ static void step(void) {
     ahead(noodle_dir);
     uint8_t x = ahead_x, y = ahead_y;
     uint8_t ate = x == food_x && y == food_y;
-    // An open door is a way out of the back wall.
-    uint8_t door = door_open && y == DOOR_Y && (uint8_t)(x - door_x) < 2;
+    // A door in the wall: open, a way out; shut or locked, it parks the noodle
+    // (a key opens a locked one).
+    uint8_t side = OPEN(x, y) ? 0xFF : door_at(x, y);
+    uint8_t ds = side == 0xFF ? DS_WALL : door_state(side);
+    uint8_t door = ds == DS_OPEN;
     uint8_t e = door ? 0 : enemy_at(x, y);
     // Unless it grows, the tail moves on this step: its cell is free to enter.
     uint8_t grows = (grow_pending || ate) && noodle_len < NOODLE_MAX;
@@ -558,13 +666,29 @@ static void step(void) {
     if (!grows) occupied[CELL(body_x[tail], body_y[tail])] &= ~OCC_BODY;
     if (!door && (!OPEN(x, y) || (occupied[CELL(x, y)] & OCC_BODY) || (e && en_state[e - 1] != EN_CRACKED))) {
         if (!grows) occupied[CELL(body_x[tail], body_y[tail])] |= OCC_BODY;
-        // A wall is a crash. Its own body or a beetle parks it, unless there's no
-        // way out.
-        if (!OPEN(x, y) || trapped(tail)) crash();
+        if (ds == DS_LOCKED && keys) {
+            keys--;
+            door_unlock(side);
+            door_redraw(side);
+            sfx_play(SFX_KEY);
+            note("UNLOCKED");
+            noodle_parked = 1;  // through it on the next beat
+            return;
+        }
+        if (ds == DS_LOCKED && !noodle_parked) {
+            sfx_play(SFX_WRONG);
+            note("LOCKED");
+        }
+        // A wall is a crash. Its own body, a beetle or a closed door parks it,
+        // unless there's no way out.
+        if ((!OPEN(x, y) && ds == DS_WALL) || trapped(tail)) crash();
         else noodle_parked = 1;
         return;
     }
     noodle_parked = 0;
+    // The new head's cell, ahead of time: a 2-long noodle's tail looks at it.
+    body_x[(uint8_t)(body_i + 1)] = x;
+    body_y[(uint8_t)(body_i + 1)] = y;
     if (e) eat_enemy(e - 1);  // cracked: the head swallows it
     // The old head cell joins the body: a tube from where the head came in to
     // where it goes now.
@@ -599,6 +723,7 @@ static void step(void) {
     occupied[CELL(x, y)] |= OCC_BODY;
     cover_in(x, y);
     slide_k = 0;
+    if (key_shown && x == key_x && y == key_y) take_key();
     if (ate) {
         // Food is worth room_food segments: one grew already this move.
         grow_pending += room_food - (ate == 2 ? 1 : 0);
@@ -615,7 +740,93 @@ static void step(void) {
     check_coils();
     if (door) {
         exit_timer = 1;
+        exit_side = side;
+        exit_off = side >= DIR_UP ? x - door_x : y - door_y;
         sfx_play(SFX_START);
+    }
+}
+
+// The next room slides in beside this one: it's drawn at the map tiles beyond
+// this room's (the map wraps, so it overwrites this room's far side, which has
+// gone off screen by then), a line at a time just before it comes into view,
+// while the view moves over. Both rooms are one screen (room_small).
+static void stream_line(uint8_t k) {
+    uint8_t d = slide_dir;
+    if (d <= DIR_LEFT) {
+        uint8_t x = d == DIR_RIGHT ? k : room_tw - 1 - k;
+        uint8_t *t = gfx_strip_attr(map_ox + x, map_oy, 1, room_th);
+        for (uint8_t y = 0; y < room_th; y++) {
+            t[y] = room_cell(x, y);
+            t[STRIP_MAX_LEN + y] = cell_attr;
+        }
+    } else {
+        uint8_t y = d == DIR_DOWN ? k : room_th - 1 - k;
+        uint8_t *t = gfx_strip_attr(map_ox, map_oy + y, 0, room_tw);
+        for (uint8_t x = 0; x < room_tw; x++) {
+            t[x] = room_cell(x, y);
+            t[STRIP_MAX_LEN + x] = cell_attr;
+        }
+    }
+}
+
+static void slide_start(uint8_t next) {
+    uint8_t w = room_tw, h = room_th;
+    switch (exit_side) {
+        case DIR_RIGHT: map_ox += w; break;
+        case DIR_LEFT: map_ox -= w; break;
+        case DIR_DOWN: map_oy += h; break;
+        default: map_oy -= h; break;
+    }
+    map_ox &= 31;
+    map_oy &= 31;
+    room_id = next;
+    room_load();
+    room_begin();
+    slide_dir = exit_side;
+    slide_t = slide_line = 0;
+}
+
+static void slide_update(void) {
+    uint8_t across = slide_dir <= DIR_LEFT;
+    uint8_t n = across ? room_tw : room_th, end = across ? VIEW_PX_W : VIEW_PX_H;
+    // A line comes into view about every 8 px; draw two ahead.
+    while (slide_line < n && (slide_line << 3) <= slide_t + 16) stream_line(slide_line++);
+    slide_t += SLIDE_SPEED;
+    if (slide_t == end >> 1) {  // half way: the stones take the new room's colors
+        palettes_marks_lit(door_open);
+        gfx_set_fade(0);
+    }
+    int16_t t = slide_t;
+    view_x = view_y = 0;
+    switch (slide_dir) {
+        case DIR_RIGHT: view_x = t - VIEW_PX_W; break;
+        case DIR_LEFT: view_x = VIEW_PX_W - t; break;
+        case DIR_DOWN: view_y = t - VIEW_PX_H; break;
+        default: view_y = VIEW_PX_H - t; break;
+    }
+    scroll_x = (uint8_t)view_x + (map_ox << 3);
+    scroll_y = (uint8_t)view_y + (map_oy << 3);
+    if (slide_t >= end) {
+        slide_dir = 0xFF;
+        camera_update(1);
+        hud_draw();
+    }
+    noodle_draw();
+    enemies_draw();
+}
+
+// START: the map on the window, over the whole screen (and no sprites); again,
+// back to the room.
+static void pause_toggle(void) {
+    paused ^= 1;
+    if (paused) {
+        map_draw();
+        move_win(7, 0);
+        gfx_sprites(0);
+    } else {
+        move_win(7, HUD_WY);
+        gfx_sprites(1);
+        hud_draw();
     }
 }
 
@@ -741,12 +952,23 @@ void play_update(void) BANKED {
         if (++dead_timer > DEATH_FRAMES) state_change(STATE_GAME_OVER);
         return;
     }
+    if (slide_dir != 0xFF) {
+        slide_update();
+        return;
+    }
     // Through the door: let the head slide in, then the next room.
     if (exit_timer) {
         if (++exit_timer > EXIT_FRAMES) {
-            room_id++;  // room_load wraps it
-            room_cleared = 1;
-            state_restart();
+            uint8_t next = room_beyond(exit_side);
+            carry_len = noodle_len + grow_pending;
+            entry_side = exit_side ^ 1;  // DIR_* pairs differ in bit 0
+            entry_off = exit_off;
+            if (room_small(room_id) && room_small(next)) slide_start(next);
+            else {
+                room_id = next;  // a bigger room fades in
+                state_restart();
+            }
+            return;
         }
         if (slide_k < step_delay) slide_k++;
         camera_update(0);
@@ -754,15 +976,8 @@ void play_update(void) BANKED {
         enemies_draw();
         return;
     }
-    if (joy_pressed & J_SELECT) {  // skip to the next room
-        room_id++;
-        room_cleared = 1;
-        state_restart();
-        return;
-    }
     if (joy_pressed & J_START) {
-        paused ^= 1;
-        hud_draw();
+        pause_toggle();
         return;
     }
     if (paused) return;
@@ -779,7 +994,7 @@ void play_update(void) BANKED {
         step();
         if (dead_timer || exit_timer) return;
     }
-    uint8_t all = switches_update();
+    uint8_t all = door_open || switches_update();
     uint8_t left = enemies_update();
     if (dead_timer) return;
     if (!door_open && all && !left) unlock();

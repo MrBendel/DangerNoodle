@@ -58,6 +58,7 @@ void title_update(void) BANKED {
         // The frame START lands on seeds the game: different every time for a
         // player, reproducible for a replay. Tests can set test_seed instead.
         game_seed = test_seed ? test_seed : frame_count;
+        play_fresh = 1;  // a new game: the dungeon starts over
         sfx_play(SFX_START);
         state_change(STATE_PLAY);
     }

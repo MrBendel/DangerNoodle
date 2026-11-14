@@ -29,6 +29,16 @@
 #define BUTTON_TAIL 5
 #define BUTTON_HEAVY 6
 #define BUTTON_TIMED 7
+#define T_DOOR_LOCK (SCENE_TILES + 49)   // the back wall's locked door
+#define T_DOORS_SHUT (SCENE_TILES + 50)  // doors in the near wall: shut, open, locked
+#define T_DOORW_SHUT (SCENE_TILES + 53)  // ... and in a side wall (top half; flip Y: bottom)
+#define T_KEY (SCENE_TILES + 56)
+#define T_MAP_ROOM (SCENE_TILES + 57)    // the map: a room seen, the room you're in,
+#define T_MAP_HERE (SCENE_TILES + 58)
+#define T_MAP_DOOR_H (SCENE_TILES + 59)  // a door across (its bar low in the tile), down,
+#define T_MAP_DOOR_V (SCENE_TILES + 60)
+#define T_MAP_SHUT_H (SCENE_TILES + 61)  // and shut ones, dotted
+#define T_MAP_SHUT_V (SCENE_TILES + 62)
 // Background tile attributes (VRAM bank 1): bits 0-2 palette, 5 x flip, 6 y flip.
 #define A_FLIPX 0x20
 #define A_FLIPY 0x40
@@ -39,6 +49,26 @@
 
 // Set room_bw ... room_y1 from room_id.
 void room_load(void) BANKED;
+// A room fits one screen (rooms slide into each other; a bigger one fades).
+uint8_t room_small(uint8_t id) BANKED;
+// The room beyond room_id's side `dir` (DIR_*), 0xFF if none.
+uint8_t room_beyond(uint8_t dir) BANKED;
+// The door at cell (x, y), as its side (DIR_*), or 0xFF.
+uint8_t door_at(uint8_t x, uint8_t y) BANKED;
+// A side's door now (DS_*): from its kind, the rooms solved, the locks opened.
+#define DS_WALL 0
+#define DS_OPEN 1
+#define DS_SHUT 2    // a shutter: opens when its room is solved
+#define DS_LOCKED 3  // opens with a key
+uint8_t door_state(uint8_t dir) BANKED;
+// Open a locked door, on both its sides.
+void door_unlock(uint8_t dir) BANKED;
+// The dungeon map, on the window (paused).
+void map_draw(void) BANKED;
+// What room cell (x, y) shows (walls, doors, floor, switches, food, the key;
+// not the body): its tile, and its attributes in cell_attr.
+extern uint8_t cell_attr;
+uint8_t room_cell(uint8_t x, uint8_t y) BANKED;
 // Room id's name ("4 FOUR CORNERS"), into buf (RAM, ROOM_NAME_MAX + 1 bytes).
 #define ROOM_NAME_MAX 18
 void room_name(uint8_t id, char *buf) BANKED;

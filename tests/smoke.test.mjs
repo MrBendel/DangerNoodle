@@ -6,6 +6,10 @@ import {
   TITLE, PLAY, GAME_OVER, RIGHT, LEFT, UP, DOWN,
 } from './helpers.mjs';
 
+// The dungeon's rooms (src/room.c), by id.
+const ROOMS = { ENTRANCE: 0, TWO: 1, QUICK: 2, S: 3, CORNERS: 4, COIL: 5, RING: 6, GUARD: 7, HEADTAIL: 8, ORDER: 9, HEAVY: 10, TREASURE: 11 };
+const NONE = 0xFF;
+
 test('boots to the title screen and runs one loop per frame', () => {
   const emu = bootToTitle();
   const f0 = emu.v('frame_count', 'u16');
@@ -93,7 +97,7 @@ test('a one-screen room is 8x7 blocks and fills the playfield', () => {
 });
 
 test('a bigger room scrolls after the head, looking ahead', () => {
-  const emu = startGame(undefined, 4242, 1);
+  const emu = startGame(undefined, 4242, ROOMS.RING);
   assert.deepEqual([emu.v('room_tw'), emu.v('room_th')], [32, 27]);
   // The head starts near the top-left corner: the view is there too, already
   // looking a little ahead (right).
@@ -117,7 +121,7 @@ test('a bigger room scrolls after the head, looking ahead', () => {
 });
 
 test('screen: a bigger room, scrolled', () => {
-  const emu = startGame(undefined, 4242, 1);
+  const emu = startGame(undefined, 4242, ROOMS.RING);
   emu.tap('DOWN');
   moves(emu, 8);
   matchGolden(emu.idle(30), 'play-big-room');
@@ -216,6 +220,7 @@ test('hitting a wall ends the game; START goes back to the title', () => {
   const emu = startGame();
   emu.until((e) => e.v('dead_timer'), 300, 'the crash');
   assert.equal(emu.v('head_x'), 17, 'crashed at the right wall (columns 18-19 are the wall)');
+  assert.equal(emu.v('head_y'), 6, 'above the door');
   settle(emu, GAME_OVER, 'game over screen');
   emu.tap('START');
   assert.equal(emu.v('next_state'), GAME_OVER, 'input is ignored for a moment');
@@ -223,7 +228,7 @@ test('hitting a wall ends the game; START goes back to the title', () => {
   settle(emu, TITLE, 'title screen');
 });
 
-test('START pauses and resumes', () => {
+test('START pauses (the map) and resumes', () => {
   const emu = startGame().tap('START');
   assert.equal(emu.v('paused'), 1);
   const x = emu.v('head_x');
@@ -273,10 +278,9 @@ test('screen: corners (every bend has its divider on the tail side)', () => {
   matchGolden(emu.idle(10), 'play-corners');
 });
 
-// Room 1's shape (src/room.c): a ring of 8 stones, cells (12-14, 4-6) less the
-// middle. Its door: the back wall's cells 14 and 15.
+// The ring's shape (src/room.c): 8 stones, cells (12-14, 4-6) less the middle.
 function coilTheRing() {
-  const emu = grow(startGame(undefined, 4242, 1), 5);  // 8 long, head at (12, 8)
+  const emu = grow(startGame(undefined, 4242, ROOMS.RING), 5);  // 8 long, head at (12, 8)
   assert.deepEqual([emu.v('head_x'), emu.v('head_y')], [12, 8]);
   turn(emu, 'UP', 4);
   turn(emu, 'RIGHT', 2);
@@ -298,30 +302,10 @@ test('covering every stone of the shape at once opens the door', () => {
   assert.equal(emu.v('door_open'), 1);
 });
 
-test('the shut door is a wall; through the open one is the next room, the score kept', () => {
-  const shut = startGame(undefined, 4242, 1);
-  turn(shut, 'UP');
-  shut.until((e) => e.v('dead_timer'), 300, 'the crash into the shut door');
-  assert.ok(shut.v('head_x') !== 14 || shut.v('head_y') !== 1);
-
-  const emu = coilTheRing();
-  turn(emu, 'DOWN');
-  turn(emu, 'RIGHT', 2);  // (15, 7), under the door's right half
-  turn(emu, 'UP', 6);
-  assert.deepEqual([emu.v('head_x'), emu.v('head_y')], [15, 1]);
-  emu.until((e) => e.v('in_transition'), 60, 'the next room');
-  settle(emu, PLAY, 'the next room');
-  assert.equal(emu.v('room_id'), 2, 'the next room');
-  assert.equal(emu.v('score', 'u16'), 5);
-  assert.equal(emu.v('noodle_len'), 3);
-  assert.equal(emu.v('door_open'), 0);
-  assert.equal(emu.v('dead_timer'), 0);
-  matchGolden(emu, 'play-next-room');
-});
-
-// --- The demo rooms (src/room.c), each solved along a planned path. ---
-const SFX_WRONG = 6, SFX_BITE = 8;
+// --- The dungeon's rooms (src/room.c), each solved along a planned path. ---
+const SFX_WRONG = 6, SFX_BITE = 8, SFX_KEY = 9;
 const room = (n) => startGame(undefined, 4242, n);
+
 /** Follow a path: [dir, moves] pairs. */
 const path = (emu, steps) => {
   for (const [d, n] of steps) turn(emu, d, n);
@@ -333,30 +317,26 @@ const doorOpens = (emu) => {
   assert.equal(emu.v('dead_timer'), 0);
 };
 
-test('LEFT and RIGHT on the title pick the room; SELECT skips to the next', () => {
+test('LEFT and RIGHT on the title pick the room to start in', () => {
   const emu = bootToTitle();
   emu.write8(emu.symbols.addr('room_id'), 0);
   emu.tap('RIGHT').tap('RIGHT');
   assert.equal(emu.v('room_id'), 2);
   emu.tap('LEFT').tap('LEFT').tap('LEFT');
-  assert.equal(emu.v('room_id'), 9, 'it wraps round');
+  assert.equal(emu.v('room_id'), 11, 'it wraps round');
   matchGolden(emu.idle(2), 'title-room-pick');
-  const play = room(3);
-  play.tap('SELECT');
-  settle(play, PLAY, 'the next room');
-  assert.equal(play.v('room_id'), 4);
 });
 
-test('room 3, two buttons: each stays down once pressed', () => {
-  const emu = path(room(2), [['UP', 3], ['LEFT', 2]]);  // (5, 5)
+test('two buttons: each stays down once pressed', () => {
+  const emu = path(room(ROOMS.TWO), [['UP', 3], ['LEFT', 2]]);  // (5, 5)
   emu.idle(1);
   assert.equal(emu.v('sw_down'), 1);
   path(emu, [['DOWN', 7], ['RIGHT', 9]]);  // (14, 12)
   doorOpens(emu);
 });
 
-test('room 4, four corners: all four held at once', () => {
-  const emu = path(room(3), [['RIGHT', 2], ['UP', 7], ['RIGHT', 3], ['DOWN', 2]]);
+test('four corners: all four held at once', () => {
+  const emu = path(room(ROOMS.CORNERS), [['RIGHT', 2], ['UP', 7], ['RIGHT', 3], ['DOWN', 2]]);
   emu.idle(1);
   assert.equal(emu.v('door_open'), 0, 'three of four');
   turn(emu, 'DOWN');  // a U through the four, 10 long
@@ -365,8 +345,8 @@ test('room 4, four corners: all four held at once', () => {
   matchGolden(emu.idle(30), 'room-four-corners');
 });
 
-test('room 5, heavy buttons: fold over each to cover all four cells', () => {
-  const emu = path(room(4), [['UP', 4], ['LEFT', 1]]);
+test('heavy buttons: fold over each to cover all four cells', () => {
+  const emu = path(room(ROOMS.HEAVY), [['UP', 4], ['LEFT', 1]]);
   emu.idle(1);
   assert.equal(emu.v('sw_down'), 0, 'three cells are not enough');
   turn(emu, 'DOWN');
@@ -376,14 +356,14 @@ test('room 5, heavy buttons: fold over each to cover all four cells', () => {
   doorOpens(emu);
 });
 
-test('room 6, quick steps: timed buttons stay down a while', () => {
-  const emu = path(room(5), [['RIGHT', 6], ['UP', 2]]);  // the third button
+test('quick steps: timed buttons stay down a while', () => {
+  const emu = path(room(ROOMS.QUICK), [['RIGHT', 6], ['UP', 2]]);  // the third button
   path(emu, [['UP', 4], ['LEFT', 3], ['LEFT', 4], ['UP', 3]]);
   doorOpens(emu);
 });
 
-test('room 7, in order: out of turn they all pop up', () => {
-  const emu = path(room(6), [['RIGHT', 5], ['DOWN', 4]]);  // "3" first
+test('in order: out of turn they all pop up', () => {
+  const emu = path(room(ROOMS.ORDER), [['RIGHT', 5], ['DOWN', 4]]);  // "3" first
   emu.idle(1);
   assert.equal(emu.v('sfx_last'), SFX_WRONG);
   assert.equal(emu.v('sw_next'), 1);
@@ -397,15 +377,15 @@ test('room 7, in order: out of turn they all pop up', () => {
   doorOpens(emu);
 });
 
-test('room 8, head and tail: the length has to match the gap', () => {
-  const emu = path(room(7), [['UP', 4], ['RIGHT', 8]]);  // head (13, 8): not yet
+test('head and tail: the length has to match the gap', () => {
+  const emu = path(room(ROOMS.HEADTAIL), [['UP', 4], ['RIGHT', 8]]);  // head (13, 8): not yet
   emu.idle(1);
   assert.equal(emu.v('door_open'), 0);
   turn(emu, 'RIGHT');
   doorOpens(emu);
 });
 
-/** Room 9's beetle, held still (its step and bite clocks wound back). */
+/** The beetle, held still (its step and bite clocks wound back). */
 const pin = (emu) => {
   emu.write8(emu.symbols.addr('en_timer'), 200);
   emu.write8(emu.symbols.addr('en_bite'), 200);
@@ -419,8 +399,8 @@ const pinnedPath = (emu, steps) => {
   return emu;
 };
 
-test('room 9: coil the beetle to crack it, then eat it', () => {
-  const emu = pin(room(8));
+test('coil a beetle: coil it to crack it, then eat it', () => {
+  const emu = pin(room(ROOMS.COIL));
   assert.deepEqual([emu.v('en_cx'), emu.v('en_cy')], [12, 6]);
   pinnedPath(emu, [['RIGHT', 4], ['UP', 3], ['RIGHT', 3], ['DOWN', 3]]);
   assert.equal(emu.v('en_state'), 1, 'armored');
@@ -434,8 +414,8 @@ test('room 9: coil the beetle to crack it, then eat it', () => {
   doorOpens(emu);
 });
 
-test('room 9: the beetle bites a segment off when you are next to it', () => {
-  const emu = pin(room(8));
+test('the beetle bites a segment off when you are next to it', () => {
+  const emu = pin(room(ROOMS.COIL));
   pinnedPath(emu, [['RIGHT', 4], ['UP', 1]]);  // (11, 7), beside it
   emu.write8(emu.symbols.addr('grow_pending'), 0);
   const len = emu.v('noodle_len');
@@ -443,4 +423,112 @@ test('room 9: the beetle bites a segment off when you are next to it', () => {
   emu.idle(3);
   assert.equal(emu.v('noodle_len'), len - 1);
   assert.equal(emu.v('sfx_last'), SFX_BITE);
+});
+
+// --- The dungeon: rooms joined by doors (src/room.c's map). ---
+// The entrance: its west door is open, its north one a shutter (the heavy
+// buttons open it), its east one locked. A one-screen room's doors: the back
+// and near walls' at cells 8-9, the side walls' at rows 8-9.
+
+test('a shut or locked door parks the noodle, not a crash', () => {
+  const emu = startGame();  // the entrance, head (7, 6) heading right
+  moves(emu, 1);
+  turn(emu, 'UP', 4);  // (8, 2), under the shutter
+  emu.until((e) => e.v('noodle_parked'), 30, 'parking at the shutter');
+  assert.deepEqual([emu.v('head_x'), emu.v('head_y')], [8, 2]);
+  path(emu, [['RIGHT', 8], ['DOWN', 6]]);  // (17, 8), beside the locked door (a turn while parked goes at once)
+  emu.tap('RIGHT');
+  emu.until((e) => e.v('noodle_parked'), 30, 'parking at the lock');
+  assert.equal(emu.v('sfx_last'), SFX_WRONG);
+  assert.deepEqual([emu.v('head_x'), emu.v('head_y')], [17, 8]);
+  assert.equal(emu.v('dead_timer'), 0);
+});
+
+/** Run until the next room has slid in; returns the worst frame on the way. */
+function slideIn(emu) {
+  emu.until((e) => e.v('slide_dir') !== NONE, 60, 'the slide');
+  let worst = 0;
+  while (emu.v('slide_dir') !== NONE) {
+    emu.idle(1);
+    worst = Math.max(worst, emu.lastFrameCycles);
+  }
+  return worst;
+}
+
+test('through an open door the next room slides in, and the noodle feeds in through it', () => {
+  const emu = startGame();
+  path(emu, [['DOWN', 2], ['LEFT', 5]]);  // (2, 8), beside the west door
+  turn(emu, 'LEFT');  // into the doorway
+  emu.until((e) => e.v('slide_dir') !== NONE, 60, 'the slide');
+  assert.equal(emu.v('room_id'), ROOMS.TWO);
+  emu.until((e) => e.v('slide_t') >= 80, 60, 'half way');
+  matchGolden(emu, 'room-slide');
+  const worst = slideIn(emu);
+  assert.ok(worst < FRAME_LIMIT, `worst frame of the slide ${worst} cycles`);
+  // In by its east door: the tail in the doorway, the head just inside.
+  assert.deepEqual([emu.v('head_x'), emu.v('head_y')], [17, 8]);
+  assert.equal(emu.v('noodle_dir'), LEFT);
+  assert.equal(emu.v('noodle_len'), 2);
+  assert.equal(emu.v('scroll_x'), 12 * 8, 'the room sits 20 tiles to the left in the map (wrapped)');
+  moves(emu, 2);
+  assert.equal(emu.v('noodle_len'), 3, 'the rest of it follows');
+  assert.equal(emu.v('dead_timer'), 0);
+  matchGolden(emu.idle(20), 'room-came-in');
+});
+
+test('a solved room stays solved; the map shows the rooms seen', () => {
+  // Two buttons, solved; then west through its shutter into quick steps, and
+  // back: its buttons are still down, its door still open.
+  const emu = path(room(ROOMS.TWO), [['UP', 3], ['LEFT', 2], ['DOWN', 7], ['RIGHT', 9]]);  // (14, 12)
+  doorOpens(emu);
+  path(emu, [['UP', 4], ['LEFT', 12]]);  // (2, 8)
+  turn(emu, 'LEFT');
+  slideIn(emu);
+  assert.equal(emu.v('room_id'), ROOMS.QUICK);
+  assert.equal(emu.v('door_open'), 0);
+  moves(emu, 3);
+  turn(emu, 'DOWN');
+  turn(emu, 'RIGHT');
+  emu.until((e) => e.v('head_x') === 17, 120, 'back to the east door');
+  turn(emu, 'UP');  // (17, 8)
+  turn(emu, 'RIGHT');
+  slideIn(emu);
+  assert.equal(emu.v('room_id'), ROOMS.TWO);
+  assert.equal(emu.v('door_open'), 1, 'still solved');
+  assert.deepEqual([emu.v('sw_down'), emu.v('sw_down', 'u16') >> 8], [1, 1], 'both buttons down');
+  emu.tap('START');
+  assert.equal(emu.v('paused'), 1);
+  matchGolden(emu.idle(2), 'map');
+});
+
+test('the heavy buttons drop a key; it opens the entrance\'s locked door, onto the treasure', () => {
+  const emu = path(room(ROOMS.HEAVY), [['UP', 4], ['LEFT', 1], ['DOWN', 1], ['DOWN', 5], ['RIGHT', 7], ['DOWN', 1], ['LEFT', 1]]);
+  doorOpens(emu);
+  assert.equal(emu.v('key_shown'), 1, 'the key is out');
+  path(emu, [['LEFT', 2], ['UP', 2], ['LEFT', 1], ['DOWN', 1]]);  // onto it, (9, 10)
+  assert.equal(emu.v('keys'), 1);
+  assert.equal(emu.v('sfx_last'), SFX_KEY);
+  // South through the open shutter: the entrance slides up into view.
+  path(emu, [['DOWN', 6]]);
+  slideIn(emu);
+  assert.equal(emu.v('room_id'), ROOMS.ENTRANCE);
+  assert.deepEqual([emu.v('head_x'), emu.v('head_y')], [9, 2], 'in by its north door');
+  path(emu, [['DOWN', 6], ['RIGHT', 8]]);  // (17, 8)
+  emu.tap('RIGHT');
+  emu.until((e) => e.v('keys') === 0, 30, 'the key used');
+  assert.equal(emu.v('dead_timer'), 0);
+  slideIn(emu);
+  assert.equal(emu.v('room_id'), ROOMS.TREASURE);
+  matchGolden(emu.idle(4), 'treasure');
+});
+
+test('a bigger room fades in instead of sliding', () => {
+  const emu = path(room(ROOMS.RING), [['DOWN', 4], ['RIGHT', 22]]);  // (29, 12), beside the ring's east door
+  assert.deepEqual([emu.v('head_x'), emu.v('head_y')], [29, 12]);
+  turn(emu, 'RIGHT');
+  emu.until((e) => e.v('in_transition'), 60, 'the fade');
+  settle(emu, PLAY, 'the next room');
+  assert.equal(emu.v('room_id'), ROOMS.COIL);
+  assert.deepEqual([emu.v('head_x'), emu.v('head_y')], [2, 8], 'in by its west door');
+  assert.equal(emu.v('dead_timer'), 0);
 });

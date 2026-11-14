@@ -39,15 +39,17 @@ static const Step wrong[] = {{8, 0, DUTY50, 0xA2, P(1500)}, {14, 0, DUTY50, 0xA3
 // Noise: lo is the polynomial (NR43), hi unused.
 static const Step crack[] = {{4, 0, 0, 0xF1, 0x24, 0}, {10, 0, 0, 0xB3, 0x46, 0}};
 static const Step bite[] = {{3, 0, 0, 0xF1, 0x52, 0}, {6, 0, 0, 0xC2, 0x33, 0}};
+// A key: two quick notes up, then a ringing high one.
+static const Step key[] = {{4, 0, DUTY50, 0xC1, P(1923)}, {4, 0, DUTY50, 0xC1, P(1985)}, {18, 0, DUTY25, 0xC4, P(2004)}};
 
 // Each sound's channel (0 = channel 1, 1 = channel 2, 2 = channel 4), priority,
 // step count and steps, as separate arrays: plain byte indexing (an array of
 // structs would multiply, a slow routine on this CPU).
 #define N(steps) (sizeof(steps) / sizeof(Step))
-static const uint8_t snd_ch[SFX_COUNT] = {1, 1, 1, 0, 0, 1, 1, 2, 2};
-static const uint8_t snd_prio[SFX_COUNT] = {4, 3, 1, 6, 5, 2, 4, 5, 5};
-static const uint8_t snd_n[SFX_COUNT] = {N(start), N(eat), N(turn), N(death), N(unlock), N(click), N(wrong), N(crack), N(bite)};
-static const Step *const snd_steps[SFX_COUNT] = {start, eat, turn, death, unlock, click, wrong, crack, bite};
+static const uint8_t snd_ch[SFX_COUNT] = {1, 1, 1, 0, 0, 1, 1, 2, 2, 0};
+static const uint8_t snd_prio[SFX_COUNT] = {4, 3, 1, 6, 5, 2, 4, 5, 5, 5};
+static const uint8_t snd_n[SFX_COUNT] = {N(start), N(eat), N(turn), N(death), N(unlock), N(click), N(wrong), N(crack), N(bite), N(key)};
+static const Step *const snd_steps[SFX_COUNT] = {start, eat, turn, death, unlock, click, wrong, crack, bite, key};
 
 uint8_t sfx_last = 0xFF;
 uint16_t sfx_played;

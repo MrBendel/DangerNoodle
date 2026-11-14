@@ -62,8 +62,8 @@ void palettes_play(void) BANKED {
     pal_base_obj[(SPR_PAL_TAIL << 2) + 3] = GRASS;
 }
 
-void palettes_marks_lit(void) BANKED {
-    set_bg(PLAY_PAL_MARK, marks_lit);
+void palettes_marks_lit(uint8_t on) BANKED {
+    set_bg(PLAY_PAL_MARK, on ? marks_lit : marks);
 }
 
 // Menus: the title's colors for the compact and display fonts.

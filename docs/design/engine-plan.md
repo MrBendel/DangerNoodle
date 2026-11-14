@@ -79,10 +79,10 @@ engine. Proposals, not decisions: change freely.
   the body is kept per move (head in, tail out), so the check is one compare.
   The door is latched; the HUD shows `LEN 03/08` (length / length the shape needs).
   Room 1 is a ring of 8, room 0 an S-curve of 11 (`src/room.c`).
-- **Demo rooms (2026-11-13):** ten rooms in `src/room.c`, one puzzle or enemy each,
-  picked with LEFT/RIGHT on the title (SELECT skips ahead in play). A room is a
-  size, a start (the noodle grows out to the room's start length as it moves), the
-  length it needs, food's worth, and objects: stones, 16x16 buttons and beetles.
+- **Demo rooms (2026-11-13):** ten rooms in `src/room.c`, one puzzle or enemy each.
+  A room is a size, a start (the noodle grows out to the room's start length as it
+  moves), the length it needs, food's worth, and objects: stones, 16x16 buttons,
+  beetles and a key.
   - **Switches** are one system: a set of cells and a count of them under the body,
     kept per move. Flags make the kinds: latched, timed (down 4 s after the body
     leaves), heavy (all 4 cells: fold over yourself), head-only, tail-only, and in
@@ -93,6 +93,26 @@ engine. Proposals, not decisions: change freely.
     Running into one parks you. Coiling one (its reachable floor is at most 6
     cells: a flood fill of a few cells per move) cracks it for 4 s; the head eats
     it for 3 segments.
+- **First dungeon (2026-11-13):** the demo rooms, an entrance and a treasure room on
+  a 4x3 grid (`src/room.c` draws the map). Each side of a room has a door kind:
+  wall, open, a shutter (open once the room on one side is solved), or locked.
+  Solved rooms, rooms seen, locks opened and keys taken are kept until a new
+  game. LEFT/RIGHT on the title picks the room to start in (for testing).
+  - **Through a door** the next room slides in (4 px a frame). Rooms sit side by
+    side in the 32x32 background map at an offset (`map_ox`, `map_oy`); the map
+    wraps, so the new room is drawn a column or row at a time just before it comes
+    into view, over the old room's far side, which has scrolled off by then. A
+    bigger room fades in instead.
+  - **The noodle feeds in** through the door: its tail in the doorway, its head just
+    inside, the rest of its length (or the room's start length, if more) still to
+    grow. Length carries from room to room.
+  - **Closed doors park** the noodle like its body does; a key opens a locked one.
+    A puzzle room's key appears when it's solved (the heavy buttons' opens the
+    entrance's east door, onto the treasure).
+  - **START shows the map** on the window over the whole screen: rooms seen, the
+    doors between them (dotted while shut), the room's name and the keys.
+  - The HUD: score, keys, length (and what the room needs until it's solved);
+    notes (the room's name, DOOR OPEN, GOT A KEY, LOCKED) for 2 s.
 - **Room data:** RogueGB's chunk format and editor (`web/chunks.html`, `tools/chunks.mjs`)
   can be adapted for hand-built rooms: walls, water, switches, doors, spawns.
 
