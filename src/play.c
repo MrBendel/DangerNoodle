@@ -3,10 +3,11 @@
 // inside a room's walls, over a floor of 16x16 blocks (game.h: the two grids),
 // and the camera follows it round rooms bigger than the screen. The d-pad
 // turns it (two turns can be queued between moves; straight back makes a
-// hairpin), food makes it longer and a little faster, and running into a wall
-// ends the game. Running into its own body, an armored beetle or a closed door
-// parks it: it waits until a turn leads somewhere open; only a park with no
-// way out is a crash. START pauses and shows the dungeon's map.
+// hairpin), and food makes it longer and a little faster. Running into a wall,
+// its own body, an armored beetle or a closed door parks it: it waits until a
+// turn leads somewhere open. Only a park with no way out (or a beetle biting it
+// down to its head) is a crash, and the room starts again. START pauses and
+// shows the dungeon's map.
 //
 // Each room is a puzzle: switches the body presses, beetles to coil and eat.
 // When every switch is down at once and every beetle eaten, the room is solved
@@ -40,7 +41,7 @@
 #define START_DELAY 16  // frames a move at first: a slow, steady beat
 #define MIN_DELAY 8
 #define FOOD_PER_SPEEDUP 4
-#define DEATH_FRAMES 60  // the crash shows this long before the game over screen
+#define DEATH_FRAMES 60  // the crash shows this long before the room starts again
 #define EXIT_FRAMES 10   // the head slides into the doorway, then the next room
 #define SLIDE_SPEED 4    // px a frame the next room slides in (a screen: 40 frames)
 #define NAME_FRAMES 120  // the HUD shows the room's name this long
@@ -679,9 +680,9 @@ static void step(void) {
             sfx_play(SFX_WRONG);
             note("LOCKED");
         }
-        // A wall is a crash. Its own body, a beetle or a closed door parks it,
-        // unless there's no way out.
-        if ((!OPEN(x, y) && ds == DS_WALL) || trapped(tail)) crash();
+        // A wall, its own body, a beetle or a closed door parks it, unless
+        // there's no way out: then the room starts again.
+        if (trapped(tail)) crash();
         else noodle_parked = 1;
         return;
     }
@@ -949,7 +950,9 @@ static uint8_t enemies_update(void) {
 
 void play_update(void) BANKED {
     if (dead_timer) {
-        if (++dead_timer > DEATH_FRAMES) state_change(STATE_GAME_OVER);
+        // The room starts again as it was when the noodle came in, at the
+        // length it came in with (entry_side, carry_len). Later: a heart.
+        if (++dead_timer > DEATH_FRAMES) state_restart();
         return;
     }
     if (slide_dir != 0xFF) {

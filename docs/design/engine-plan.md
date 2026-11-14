@@ -41,11 +41,14 @@ engine. Proposals, not decisions: change freely.
   out of it and goes at half pace: at the old cell, facing the new way, it would
   cover the bend and stick out past the body. In 8×16 sprite mode a
   vertical flip swaps the pair's halves, so up-facing pieces are drawn, not flipped.
-- **Parking** (decided 2026-11-12): running into its own body doesn't hurt; the noodle
-  stops with its head against itself and waits for a turn that leads somewhere open
-  (which goes at once, not at the next beat). Only a park with no way out (every
-  neighbouring cell wall or body, the tail's cell counting as open) costs: for now a
-  crash, later a heart. Walls still crash.
+- **Parking** (decided 2026-11-12; walls too since 2026-11-14): running into a wall,
+  its own body, a beetle or a closed door doesn't hurt; the noodle stops with its head
+  against it and waits for a turn that leads somewhere open (which goes at once, not
+  at the next beat). Only a park with no way out (every neighbouring cell wall or
+  body, the tail's cell counting as open) costs: a crash, and the room starts again
+  as it was when the noodle came in, at the length it came in with (later this also
+  costs a heart). Hurting is left to hazards you can see: blade traps, spike walls,
+  floor spikes (next).
 - **The HUD is at the bottom, on the window layer** (as in RogueGB, decided there
   2026-10-12). The hardware draws the window from line WY down to the bottom of the
   screen for free; a top HUD would need a scanline interrupt every frame to switch the
@@ -159,8 +162,8 @@ The smallest slice that tests the dungeon rules:
 
 1. Auto-movement on the 8×8 grid at a slow speed, with corner pieces, in a room of
    16×16 floor blocks inside the walls.
-2. Hitting a wall bounces back and costs a tail segment (your own body parks you); at just the head,
-   lose a heart and restart the room at the length you entered with.
+2. Walls and your own body park you; boxed in, lose a heart and restart the room at
+   the length you entered with.
 3. HUD: hearts, current length, the length the room needs.
 4. Critters to eat (one segment each, a little faster each time).
 5. A latched two-button switch that opens the exit door.

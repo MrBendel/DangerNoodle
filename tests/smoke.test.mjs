@@ -206,21 +206,39 @@ test('running into its own body parks it until a turn leads out', () => {
   assert.equal(emu.v('noodle_parked'), 0);
 });
 
-test('parked with no way out is a crash', () => {
+test('parked with no way out is a crash, and the room starts again', () => {
   const emu = grow(startGame(), 6);  // 9 long, heading right
+  const start = [emu.v('head_x'), emu.v('head_y')];
   // Coil into a pocket walled by its own body: down 2, left 2, up 1, right 1.
   turn(emu, 'DOWN', 2);
   turn(emu, 'LEFT', 2);
   turn(emu, 'UP');
   emu.tap('RIGHT');
   emu.until((e) => e.v('dead_timer'), 30, 'the crash');
+  emu.until((e) => !e.v('dead_timer'), 200, 'the room again');
+  settle(emu, PLAY, 'play again');
+  assert.equal(emu.v('noodle_len'), 3, 'at the length it came in with');
+  assert.equal(emu.v('noodle_dir'), RIGHT);
+  assert.ok(emu.v('head_x') <= start[0] + 1 && emu.v('head_y') === start[1], 'back at the start');
 });
 
-test('hitting a wall ends the game; START goes back to the title', () => {
+test('hitting a wall parks it until a turn leads out', () => {
   const emu = startGame();
-  emu.until((e) => e.v('dead_timer'), 300, 'the crash');
-  assert.equal(emu.v('head_x'), 17, 'crashed at the right wall (columns 18-19 are the wall)');
+  emu.until((e) => e.v('noodle_parked'), 300, 'parking at the wall');
+  assert.equal(emu.v('head_x'), 17, 'against the right wall (columns 18-19 are the wall)');
   assert.equal(emu.v('head_y'), 6, 'above the door');
+  emu.idle(60);
+  assert.equal(emu.v('head_x'), 17, 'it waits');
+  assert.equal(emu.v('dead_timer'), 0);
+  emu.tap('UP').idle(1);
+  assert.deepEqual([emu.v('head_x'), emu.v('head_y')], [17, 5], 'a turn goes at once');
+  assert.equal(emu.v('noodle_parked'), 0);
+});
+
+test('the game over screen goes back to the title on START', () => {
+  // Nothing in play leads here yet (later: out of hearts).
+  const emu = startGame();
+  emu.write8(emu.symbols.addr('next_state'), GAME_OVER);
   settle(emu, GAME_OVER, 'game over screen');
   emu.tap('START');
   assert.equal(emu.v('next_state'), GAME_OVER, 'input is ignored for a moment');
@@ -265,7 +283,7 @@ test('screen: paused', () => {
 
 test('screen: game over', () => {
   const emu = startGame();
-  emu.until((e) => e.v('dead_timer'), 300, 'the crash');
+  emu.write8(emu.symbols.addr('next_state'), GAME_OVER);
   matchGolden(settle(emu, GAME_OVER, 'game over screen'), 'game-over');
 });
 
