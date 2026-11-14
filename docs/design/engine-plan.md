@@ -116,6 +116,25 @@ engine. Proposals, not decisions: change freely.
     doors between them (dotted while shut), the room's name and the keys.
   - The HUD: score, keys, length (and what the room needs until it's solved);
     notes (the room's name, DOOR OPEN, GOT A KEY, LOCKED) for 2 s.
+- **Hazards (first version, 2026-11-14):** a hazard cuts the body where it hits:
+  that segment and everything behind it falls off (the head and one segment always
+  stay; a hit at the neck takes the rest behind it). Hitting the head is a crash and
+  the room starts again. Two rooms below the entrance try them:
+  - **Spike walls**: runs of steel plates in a wall, each on a 3 s clock with its
+    own phase: the holes glow red for half a second, then spikes come out over the
+    open cells beside the run for half a second, cutting the body there; while
+    out, those cells are closed (the head parks). A cell's spike run is in its
+    `occupied` bits, so the cut is one pass over the body when a run fires, and a
+    run redraws as two strips (its plates, its cells).
+  - **Blade traps**: 16x16 sprites resting on a block. When the head comes into
+    the blade's row or column of blocks it shudders (12 frames), shoots along it
+    at 2 px a frame until the wall or another blade, slides back at 1 px, and
+    rests a second. It cuts the body it passes through, and the head parks
+    against it. Crossing a lane is a race: far from the blade a short noodle gets
+    over whole; near it, or long, you lose the tail.
+  - Tuning knobs (`src/play.c`): `SPIKE_*`, `BLADE_*`. To decide by playing:
+    whether a whole tail is too much to lose to a blade, and whether a hit on the
+    head should cost less than the room.
 - **Room data:** RogueGB's chunk format and editor (`web/chunks.html`, `tools/chunks.mjs`)
   can be adapted for hand-built rooms: walls, water, switches, doors, spawns.
 

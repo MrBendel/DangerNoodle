@@ -95,7 +95,8 @@ void win_frame(uint8_t x, uint8_t y, uint8_t w, uint8_t h) BANKED;
 #define SPR_PAL_TAIL 2    // the noodle's tail tip: color 3 is grass (a mask)
 #define SPR_PAL_BEETLE 3  // its shell
 #define SPR_PAL_SOFT 4    // cracked: soft inside
-#define SPR_PAL_ANGRY 5   // about to bite
+#define SPR_PAL_ANGRY 5   // about to bite (and a blade trap about to go)
+#define SPR_PAL_STEEL 6   // blade traps
 #define SPR_PAL_UI 7
 extern uint16_t pal_base_bg[PAL_COUNT * 4], pal_base_obj[PAL_COUNT * 4];
 // Put the base palettes on screen at fade step `step` (0 = as they are,
@@ -127,7 +128,7 @@ void palettes_title(void) BANKED;
 #define PLAY_PAL_WALL 1
 #define PLAY_PAL_NOODLE 2
 #define PLAY_PAL_FOOD 3
-#define PLAY_PAL_TEXT 4  // the pause banner (the HUD itself uses BG_PAL_UI)
+#define PLAY_PAL_SPIKE 4  // spike plates and spikes: steel, and red holes before they fire
 #define PLAY_PAL_MARK 5  // switches: a shape's stones and buttons, up
 #define PLAY_PAL_LIT 7   // a switch held down (latched, or timed)
 void palettes_play(void) BANKED;

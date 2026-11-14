@@ -7,7 +7,7 @@ import {
 } from './helpers.mjs';
 
 // The dungeon's rooms (src/room.c), by id.
-const ROOMS = { ENTRANCE: 0, TWO: 1, QUICK: 2, S: 3, CORNERS: 4, COIL: 5, RING: 6, GUARD: 7, HEADTAIL: 8, ORDER: 9, HEAVY: 10, TREASURE: 11 };
+const ROOMS = { ENTRANCE: 0, TWO: 1, QUICK: 2, S: 3, CORNERS: 4, COIL: 5, RING: 6, GUARD: 7, HEADTAIL: 8, ORDER: 9, HEAVY: 10, TREASURE: 11, BLADES: 12, SPIKES: 13 };
 const NONE = 0xFF;
 
 test('boots to the title screen and runs one loop per frame', () => {
@@ -341,7 +341,7 @@ test('LEFT and RIGHT on the title pick the room to start in', () => {
   emu.tap('RIGHT').tap('RIGHT');
   assert.equal(emu.v('room_id'), 2);
   emu.tap('LEFT').tap('LEFT').tap('LEFT');
-  assert.equal(emu.v('room_id'), 11, 'it wraps round');
+  assert.equal(emu.v('room_id'), 13, 'it wraps round');
   matchGolden(emu.idle(2), 'title-room-pick');
 });
 
@@ -549,4 +549,57 @@ test('a bigger room fades in instead of sliding', () => {
   assert.equal(emu.v('room_id'), ROOMS.COIL);
   assert.deepEqual([emu.v('head_x'), emu.v('head_y')], [2, 8], 'in by its west door');
   assert.equal(emu.v('dead_timer'), 0);
+});
+
+// Hazards. The spike clock and the blades' rest are set by hand so the tests
+// don't depend on how long the noodle took to get there.
+const SPIKE_OUT = 150;
+const setSpikeClock = (emu, t) => emu.write8(emu.symbols.addr('spike_clock'), t);
+
+test('spike walls: the body beside them is cut when they fire, and they close those cells', () => {
+  const emu = path(room(ROOMS.SPIKES), [['UP', 6]]);  // (7, 2), beside the back wall
+  setSpikeClock(emu, 0);
+  emu.tap('DOWN');  // a hairpin: (8, 2), then down
+  moves(emu, 3);
+  assert.deepEqual([emu.v('head_x'), emu.v('head_y')], [8, 4]);
+  assert.equal(emu.v('noodle_len'), 3);
+  setSpikeClock(emu, SPIKE_OUT - 1);  // the back wall's run fires next frame
+  emu.idle(2);
+  assert.equal(emu.v('spk_state'), 2, 'out');
+  assert.equal(emu.v('cuts'), 1);
+  assert.equal(emu.v('noodle_len'), 2, 'the tail beside the wall came off');
+  assert.equal(emu.v('dead_timer'), 0);
+  matchGolden(emu.idle(1), 'room-spikes-out');
+});
+
+test('spike walls: firing on the head is a crash', () => {
+  const emu = path(room(ROOMS.SPIKES), [['UP', 6]]);  // (7, 2)
+  setSpikeClock(emu, SPIKE_OUT - 1);
+  emu.idle(2);
+  assert.ok(emu.v('dead_timer') > 0);
+});
+
+test('blade traps: one goes for the head in its column; hitting the head is a crash', () => {
+  const emu = room(ROOMS.BLADES);
+  emu.write8(emu.symbols.addr('bl_timer'), 0);
+  // Right along row 8 into the east blade's column (16-17): it comes down.
+  emu.until((e) => e.v('bl_state') !== 0 || e.v('dead_timer'), 300, 'the blade waking');
+  assert.equal(emu.v('head_x'), 16);
+  emu.until((e) => e.v('dead_timer'), 60, 'the blade hitting the head');
+});
+
+test('blade traps: crossing its row, the body behind the head is cut', () => {
+  const emu = room(ROOMS.BLADES);
+  // Up through the east blade's row (6-7), far from it.
+  turn(emu, 'UP');  // (7, 7)
+  emu.write8(emu.symbols.addr('bl_timer'), 0);
+  emu.until((e) => e.v('bl_state') === 2, 60, 'the blade going');
+  assert.equal(emu.v('bl_dir'), LEFT);
+  emu.until((e) => e.v('cuts') || e.v('dead_timer'), 120, 'the cut');
+  assert.equal(emu.v('dead_timer'), 0, 'the head got past');
+  assert.ok(emu.v('noodle_len') === 2, `the rest came off (${emu.v('noodle_len')} left)`);
+  matchGolden(emu.idle(2), 'room-blade');
+  // It goes back home and waits.
+  emu.until((e) => e.v('bl_state') === 0, 200, 'the blade home');
+  assert.equal(emu.v('bl_x'), 128);
 });

@@ -55,6 +55,13 @@
 #define COIL_MAX 6        // a coil is tight: the beetle's 4 cells and 2 to spare
 #define EAT_GROW 3        // segments a beetle is worth
 #define EAT_SCORE 5
+// Hazards (game.h).
+#define SPIKE_PERIOD 180  // frames: each run fires once a period
+#define SPIKE_WARN 120    // ... glowing red from here
+#define SPIKE_OUT 150     // ... and out from here to the end of the period
+#define BLADE_WIND 12     // frames it shudders before it goes
+#define BLADE_SPEED 2     // px a frame out (and 1 back)
+#define BLADE_REST 60     // frames at home before it can go again
 
 uint16_t game_seed;
 uint16_t test_seed;
@@ -97,6 +104,12 @@ uint8_t en_k[ENEMY_MAX];      // frames since its step (the slide)
 int8_t en_bx[ENEMY_MAX], en_by[ENEMY_MAX];  // where it stepped from (-1, 0, 1)
 uint8_t en_step[ENEMY_MAX];   // its legs: steps taken
 
+// Hazards.
+uint8_t spike_clock;  // frames into SPIKE_PERIOD
+uint8_t bl_x[BLADE_MAX], bl_y[BLADE_MAX], bl_state[BLADE_MAX];
+uint8_t bl_dir[BLADE_MAX], bl_timer[BLADE_MAX];
+uint8_t cuts;  // times a hazard (or a beetle) has cut the body
+
 // Sprites (8x16 mode): the head and the tail tip (the art in the top half), and
 // two per beetle (its left column, and the right: a flip).
 #define SPR_HEAD 0
@@ -109,6 +122,8 @@ uint8_t en_step[ENEMY_MAX];   // its legs: steps taken
 #define S_TAIL_D 8
 #define S_TAIL_U 10
 #define S_BEETLE 12  // its legs' other step at +2, cracked at +4
+#define S_BLADE 18
+#define SPR_BLADE (SPR_ENEMY + 2 * ENEMY_MAX)
 // The slide: frames since the last move (up to step_delay), and how far (px)
 // the ends have moved by then. Each move is a step on a beat, like a roguelike's
 // turns: the ends ease in and out of the move over its first 6 frames, then
@@ -192,6 +207,13 @@ static void sw_redraw(uint8_t i) {
 static uint8_t enemy_at(uint8_t x, uint8_t y) {
     for (uint8_t i = 0; i < ENEMY_MAX; i++)
         if (en_state[i] && (uint8_t)(x - en_cx[i]) < 2 && (uint8_t)(y - en_cy[i]) < 2) return i + 1;
+    return 0;
+}
+
+// A blade covers cell (x, y) (its 16x16 box, wherever it is on its run).
+static uint8_t blade_at(uint8_t x, uint8_t y) {
+    for (uint8_t i = 0; i < bl_count; i++)
+        if ((uint8_t)((x << 3) - bl_x[i] + 7) < 23 && (uint8_t)((y << 3) - bl_y[i] + 7) < 23) return 1;
     return 0;
 }
 
@@ -290,6 +312,26 @@ static void enemies_draw(void) {
     }
 }
 
+// The blades: steel, red while they shudder before they go.
+static void blades_draw(void) {
+    for (uint8_t i = 0; i < BLADE_MAX; i++) {
+        uint8_t n = SPR_BLADE + (i << 1);
+        if (i >= bl_count) {
+            move_sprite(n, 0, 0);
+            move_sprite(n + 1, 0, 0);
+            continue;
+        }
+        uint8_t pal = bl_state[i] == BL_WIND ? SPR_PAL_ANGRY : SPR_PAL_STEEL;
+        int8_t j = bl_state[i] == BL_WIND ? (bl_timer[i] & 2) - 1 : 0;  // a shudder
+        set_sprite_tile(n, S_BLADE);
+        set_sprite_tile(n + 1, S_BLADE);
+        set_sprite_prop(n, pal);
+        set_sprite_prop(n + 1, pal | S_FLIPX);
+        place(n, bl_x[i] + j, bl_y[i]);
+        place(n + 1, bl_x[i] + j + 8, bl_y[i]);
+    }
+}
+
 static void hud_score(void) {
     if (paused || name_timer) return;
     win_number(0, 0, score, 4, 1);
@@ -344,6 +386,18 @@ found:
     if (!later) put(x, y, T_FOOD, PLAY_PAL_FOOD);
 }
 
+// Spike run i's k-th open cell, beside its plate: in sp_x, sp_y.
+static uint8_t sp_x, sp_y;
+static void spike_at(uint8_t i, uint8_t k) {
+    uint8_t a = spk_from[i] + k;
+    switch (spk_side[i]) {
+        case DIR_UP: sp_x = a; sp_y = ROOM_Y0; break;
+        case DIR_DOWN: sp_x = a; sp_y = room_y1; break;
+        case DIR_LEFT: sp_x = ROOM_X0; sp_y = a; break;
+        default: sp_x = room_x1; sp_y = a; break;
+    }
+}
+
 // A room starts (room_load has run): its switches, beetles and key as the
 // dungeon left them, and the noodle at its start (a new game) or in the door
 // it came in by (entry_side), feeding in from there: two cells in, the rest of
@@ -365,6 +419,21 @@ static void room_begin(void) {
         en_bite[i] = BITE_EVERY;
         en_coiled[i] = en_k[i] = en_step[i] = 0;
         en_bx[i] = en_by[i] = 0;
+    }
+    // Hazards: the spikes' cells, the clock, the blades at home.
+    spike_clock = 0;
+    for (uint8_t i = 0; i < spk_count; i++) {
+        spk_state[i] = SPK_IDLE;
+        for (uint8_t k = 0; k < spk_n[i]; k++) {
+            spike_at(i, k);
+            occupied[CELL(sp_x, sp_y)] |= OCC_SPIKE | (i << 6);
+        }
+    }
+    for (uint8_t i = 0; i < bl_count; i++) {
+        bl_x[i] = bl_hx[i];
+        bl_y[i] = bl_hy[i];
+        bl_state[i] = BL_REST;
+        bl_timer[i] = BLADE_REST;
     }
     if (!sw_count && !en_count) done = room_done[room_id] = 1;  // nothing to solve
     door_open = done;
@@ -469,6 +538,7 @@ void play_enter(void) BANKED {
     camera_update(1);
     noodle_draw();
     enemies_draw();
+    blades_draw();
 }
 
 // The cell next to (x, y) in direction d, in ahead_x/ahead_y.
@@ -487,7 +557,7 @@ static void next_to(uint8_t x, uint8_t y, uint8_t d) {
 
 // The head can go to (x, y): open floor, not the body, not an armored beetle.
 static uint8_t free_cell(uint8_t x, uint8_t y) {
-    if (!OPEN(x, y) || (occupied[CELL(x, y)] & OCC_BODY)) return 0;
+    if (!OPEN(x, y) || (occupied[CELL(x, y)] & OCC_BODY) || blade_at(x, y)) return 0;
     uint8_t e = enemy_at(x, y);
     return !e || en_state[e - 1] == EN_CRACKED;
 }
@@ -550,23 +620,49 @@ static uint8_t tail_on_bend(uint8_t t) {
     return body_x[v] - body_x[u] != body_x[u] - body_x[t] || body_y[v] - body_y[u] != body_y[u] - body_y[t];
 }
 
-// A beetle bites: the tail end comes off. Down to the head and one segment,
-// it's a crash.
-static void shrink(void) {
-    if (noodle_len <= 2) {
+// The body is cut at index k: that segment and everything behind it falls off.
+// The head and one segment always stay (cut nearer the head, the segment
+// behind the head stays too); cut at the head, or with nothing behind the head
+// and one segment to lose, it's a crash.
+static void cut(uint8_t k) {
+    if (k == body_i || noodle_len <= 2) {
         crash();
         return;
     }
-    uint8_t t = TAIL(), x = body_x[t], y = body_y[t];
-    occupied[CELL(x, y)] &= ~OCC_BODY;
-    cover_out(x, y);
-    put_floor(x, y);
-    noodle_len--;
+    if (k == (uint8_t)(body_i - 1)) k--;
+    cuts++;
+    for (uint8_t t = TAIL(); t != (uint8_t)(k + 1); t++) {
+        uint8_t x = body_x[t], y = body_y[t];
+        occupied[CELL(x, y)] &= ~OCC_BODY;
+        cover_out(x, y);
+        put_floor(x, y);
+    }
+    noodle_len = body_i - k;
     tail_bx = tail_by = 0;
     // The new tail's cell: under the tip, a bend shows as floor (as in step).
-    if (tail_on_bend(t)) put_floor(body_x[(uint8_t)(t + 1)], body_y[(uint8_t)(t + 1)]);
+    if (tail_on_bend(k)) put_floor(body_x[(uint8_t)(k + 1)], body_y[(uint8_t)(k + 1)]);
     sfx_play(SFX_BITE);
     hud_score();
+}
+// A beetle bites: the tail end comes off.
+#define shrink() cut(TAIL())
+
+// The body's index nearest the head that a hazard hits: in spike run `run`'s
+// cells, or (run 0xFF) inside the 16x16 box at (hit_x, hit_y) px, a blade's.
+// None: the index just behind the tail.
+static uint8_t hit_x, hit_y;
+static uint8_t body_hit(uint8_t run) {
+    uint8_t j = body_i;
+    for (uint8_t n = noodle_len; n; n--, j--) {
+        uint8_t x = body_x[j], y = body_y[j];
+        if (run != 0xFF) {
+            uint8_t o = occupied[CELL(x, y)];
+            if ((o & OCC_SPIKE) && (o >> 6) == run) return j;
+        } else if ((uint8_t)((x << 3) - hit_x + 7) < 23 && (uint8_t)((y << 3) - hit_y + 7) < 23) {
+            return j;
+        }
+    }
+    return j;  // TAIL() - 1: none
 }
 
 // A beetle coiled tight: the floor it can reach (4-way, past no body or wall)
@@ -661,11 +757,13 @@ static void step(void) {
     uint8_t ds = side == 0xFF ? DS_WALL : door_state(side);
     uint8_t door = ds == DS_OPEN;
     uint8_t e = door ? 0 : enemy_at(x, y);
+    uint8_t occ = occupied[CELL(x, y)];
+    uint8_t hazard = !door && (blade_at(x, y) || ((occ & OCC_SPIKE) && spk_state[occ >> 6] == SPK_OUT));
     // Unless it grows, the tail moves on this step: its cell is free to enter.
     uint8_t grows = (grow_pending || ate) && noodle_len < NOODLE_MAX;
     uint8_t tail = TAIL();
     if (!grows) occupied[CELL(body_x[tail], body_y[tail])] &= ~OCC_BODY;
-    if (!door && (!OPEN(x, y) || (occupied[CELL(x, y)] & OCC_BODY) || (e && en_state[e - 1] != EN_CRACKED))) {
+    if (hazard || (!door && (!OPEN(x, y) || (occupied[CELL(x, y)] & OCC_BODY) || (e && en_state[e - 1] != EN_CRACKED)))) {
         if (!grows) occupied[CELL(body_x[tail], body_y[tail])] |= OCC_BODY;
         if (ds == DS_LOCKED && keys) {
             keys--;
@@ -814,6 +912,7 @@ static void slide_update(void) {
     }
     noodle_draw();
     enemies_draw();
+    blades_draw();
 }
 
 // START: the map on the window, over the whole screen (and no sprites); again,
@@ -948,6 +1047,129 @@ static uint8_t enemies_update(void) {
     return left;
 }
 
+// Spike run i, drawn as it is now: its plates (glowing or not), and the cells
+// beside it (spikes out, or the floor again). Both are a strip.
+static void spike_redraw(uint8_t i) {
+    uint8_t s = spk_state[i], n = spk_n[i], side = spk_side[i];
+    uint8_t across = side >= DIR_UP;  // a run along the back or near wall
+    spike_at(i, 0);
+    for (uint8_t pass = 0; pass < 2; pass++) {
+        uint8_t x = sp_x, y = sp_y;
+        if (!pass) {
+            if (s == SPK_IDLE) continue;  // the plates look the same out and in
+            switch (side) {
+                case DIR_UP: y = DOOR_Y; break;
+                case DIR_DOWN: y = room_th - 1; break;
+                case DIR_LEFT: x = 1; break;
+                default: x = room_tw - 2; break;
+            }
+        } else if (s == SPK_WARN) continue;  // the body may be on them: no change
+        uint8_t *t = gfx_strip_attr(x + map_ox, y + map_oy, !across, n);
+        for (uint8_t k = 0; k < n; k++) {
+            t[k] = room_cell(x, y);
+            t[STRIP_MAX_LEN + k] = cell_attr;
+            if (across) x++;
+            else y++;
+        }
+    }
+}
+
+// Every frame: each spike run on the clock. When one fires, the body beside it
+// is cut.
+static void spikes_update(void) {
+    if (++spike_clock == SPIKE_PERIOD) spike_clock = 0;
+    for (uint8_t i = 0; i < spk_count; i++) {
+        uint16_t t = (uint16_t)spike_clock + spk_phase[i];
+        if (t >= SPIKE_PERIOD) t -= SPIKE_PERIOD;
+        uint8_t s = t >= SPIKE_OUT ? SPK_OUT : t >= SPIKE_WARN ? SPK_WARN : SPK_IDLE;
+        if (s == spk_state[i]) continue;
+        spk_state[i] = s;
+        if (s == SPK_OUT) {
+            uint8_t k = body_hit(i);
+            if (k != (uint8_t)(TAIL() - 1)) cut(k);
+            sfx_play(SFX_CRACK);
+        }
+        spike_redraw(i);
+    }
+}
+
+// A blade can be at (x, y) px: inside the room, clear of the other blades.
+static uint8_t blade_can_go(uint8_t i, uint8_t x, uint8_t y) {
+    if (x < (ROOM_X0 << 3) || x > ((room_x1 - 1) << 3) || y < (ROOM_Y0 << 3) || y > ((room_y1 - 1) << 3)) return 0;
+    for (uint8_t j = 0; j < bl_count; j++)
+        if (j != i && (uint8_t)(x - bl_x[j] + 15) < 31 && (uint8_t)(y - bl_y[j] + 15) < 31) return 0;
+    return 1;
+}
+
+// Every frame: a blade at home waits for the head to come into its row or
+// column of blocks, shudders, shoots along it until it can't go on, and slides
+// home. Moving, it cuts the body it passes through.
+static void blades_update(void) {
+    for (uint8_t i = 0; i < bl_count; i++) {
+        uint8_t st = bl_state[i];
+        if (st == BL_REST) {
+            if (bl_timer[i]) {
+                bl_timer[i]--;
+                continue;
+            }
+            uint8_t cx = bl_x[i] >> 3, cy = bl_y[i] >> 3;
+            if ((uint8_t)(head_y - cy) < 2) bl_dir[i] = head_x < cx ? DIR_LEFT : DIR_RIGHT;
+            else if ((uint8_t)(head_x - cx) < 2) bl_dir[i] = head_y < cy ? DIR_UP : DIR_DOWN;
+            else continue;
+            bl_state[i] = BL_WIND;
+            bl_timer[i] = BLADE_WIND;
+            continue;
+        }
+        if (st == BL_WIND) {
+            if (!--bl_timer[i]) {
+                bl_state[i] = BL_GO;
+                sfx_play(SFX_TURN);
+            }
+            continue;
+        }
+        uint8_t x = bl_x[i], y = bl_y[i];
+        if (st == BL_GO) {
+            for (uint8_t px = BLADE_SPEED; px; px--) {
+                uint8_t nx = x, ny = y;
+                switch (bl_dir[i]) {
+                    case DIR_RIGHT: nx++; break;
+                    case DIR_LEFT: nx--; break;
+                    case DIR_UP: ny--; break;
+                    default: ny++; break;
+                }
+                if (!blade_can_go(i, nx, ny)) {
+                    bl_state[i] = BL_BACK;
+                    break;
+                }
+                x = nx;
+                y = ny;
+            }
+        } else {  // BL_BACK, a px a frame
+            if (x < bl_hx[i]) x++;
+            else if (x > bl_hx[i]) x--;
+            if (y < bl_hy[i]) y++;
+            else if (y > bl_hy[i]) y--;
+            if (x == bl_hx[i] && y == bl_hy[i]) {
+                bl_state[i] = BL_REST;
+                bl_timer[i] = BLADE_REST;
+            }
+        }
+        bl_x[i] = x;
+        bl_y[i] = y;
+        // What it passes through: a quick look at its cells, then the body.
+        uint8_t x0 = x >> 3, y0 = y >> 3, any = 0;
+        for (uint8_t cy = y0; cy <= (uint8_t)((y + 15) >> 3); cy++)
+            for (uint8_t cx = x0; cx <= (uint8_t)((x + 15) >> 3); cx++)
+                any |= occupied[CELL(cx, cy)];
+        if (!(any & OCC_BODY)) continue;
+        hit_x = x;
+        hit_y = y;
+        uint8_t k = body_hit(0xFF);
+        if (k != (uint8_t)(TAIL() - 1)) cut(k);
+        if (dead_timer) return;
+    }
+}
+
 void play_update(void) BANKED {
     if (dead_timer) {
         // The room starts again as it was when the noodle came in, at the
@@ -977,6 +1199,7 @@ void play_update(void) BANKED {
         camera_update(0);
         noodle_draw();
         enemies_draw();
+        blades_draw();
         return;
     }
     if (joy_pressed & J_START) {
@@ -999,10 +1222,13 @@ void play_update(void) BANKED {
     }
     uint8_t all = door_open || switches_update();
     uint8_t left = enemies_update();
+    spikes_update();
+    blades_update();
     if (dead_timer) return;
     if (!door_open && all && !left) unlock();
     if (slide_k < step_delay) slide_k++;
     camera_update(0);
     noodle_draw();
     enemies_draw();
+    blades_draw();
 }

@@ -25,9 +25,9 @@
 #define ROOM_BH_MAX 14
 #define ROOM_TH_MAX (3 + 2 * ROOM_BH_MAX)
 // The dungeon (room.c): its rooms on a grid, joined by doors on their sides.
-#define ROOM_COUNT 12
+#define ROOM_COUNT 14
 #define DUNGEON_W 4
-#define DUNGEON_H 3
+#define DUNGEON_H 4
 #define ROOM_GOAL 11  // the treasure room: the dungeon is cleared
 extern uint8_t room_id;           // the room to play (tests set it before START)
 extern uint8_t room_bw, room_bh;  // its size in blocks
@@ -48,8 +48,10 @@ extern uint8_t play_fresh;
 // key appears when it's solved).
 extern uint8_t key_x, key_y, key_shown;
 // Each cell, by (y << 5) | x: bit 0, the noodle covers it; bits 1-4, the
-// switch it belongs to (its index + 1; 0: none).
+// switch it belongs to (its index + 1; 0: none); bit 5, a spike plate beside
+// it (OCC_SPIKE), whose run is bits 6-7.
 extern uint8_t occupied[];
+#define OCC_SPIKE 0x20
 // How the noodle comes in: through the door on side entry_side (DIR_*),
 // entry_off cells along it; 0xFF: at the room's start (a new game).
 extern uint8_t entry_side, entry_off;
@@ -94,6 +96,35 @@ extern uint8_t door_open;      // solved (this visit or before)
 extern uint8_t en_count;  // in the room at the start
 extern uint8_t en_state[ENEMY_MAX];
 extern uint8_t en_cx[ENEMY_MAX], en_cy[ENEMY_MAX];  // its top-left cell
+
+// Hazards. They cut the body where they hit it: that segment and everything
+// behind it falls off (at least a head and one segment stay). One that hits
+// the head is a crash: the room starts again.
+// Spike walls: runs of plates in a wall (spk_side, DIR_*: the wall; spk_from:
+// the first open column or row beside it; spk_n cells). Each fires on a clock
+// (its phase into SPIKE_PERIOD frames): it glows red, then its spikes come out
+// over the open cells beside it for a moment, cutting the body there; while
+// they're out, those cells are closed.
+#define SPIKE_MAX 4
+#define SPK_IDLE 0
+#define SPK_WARN 1
+#define SPK_OUT 2
+extern uint8_t spk_count;
+extern uint8_t spk_side[SPIKE_MAX], spk_from[SPIKE_MAX], spk_n[SPIKE_MAX], spk_phase[SPIKE_MAX];
+extern uint8_t spk_state[SPIKE_MAX];
+// Blade traps: 16x16, resting on a block (bl_hx, bl_hy: its top-left, room
+// px). When the head comes into its row or column of blocks, it shudders,
+// then shoots along it to the wall (or another blade) and slides back.
+// It cuts the body it passes through; at rest or not, the head can't go
+// through it.
+#define BLADE_MAX 4
+#define BL_REST 0
+#define BL_WIND 1
+#define BL_GO 2
+#define BL_BACK 3
+extern uint8_t bl_count;
+extern uint8_t bl_hx[BLADE_MAX], bl_hy[BLADE_MAX];
+extern uint8_t bl_x[BLADE_MAX], bl_y[BLADE_MAX], bl_state[BLADE_MAX];
 
 #define DIR_RIGHT 0
 #define DIR_LEFT 1

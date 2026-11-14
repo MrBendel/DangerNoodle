@@ -19,14 +19,18 @@
 // (a shutter is D_MINE on one side and D_THEIRS on the other.)
 //
 // Objects: O_STONES n then n cells (x, y); O_BUTTON flags then its block
-// (bx, by); O_BEETLE then its block; O_KEY then its cell; O_END. Block (bx, by)
-// is cells (2 + 2bx, 2 + 2by): game.h. A puzzle room's key appears when it's
+// (bx, by); O_BEETLE then its block; O_KEY then its cell; O_SPIKES then its
+// wall (DIR_*), first cell along it, length and phase (frames into the spike
+// clock, < SPIKE_PERIOD); O_BLADE then its block; O_END. Block (bx, by) is
+// cells (2 + 2bx, 2 + 2by): game.h. A puzzle room's key appears when it's
 // solved.
 #define O_END 0
 #define O_STONES 1
 #define O_BUTTON 2
 #define O_BEETLE 3
 #define O_KEY 4
+#define O_SPIKES 5
+#define O_BLADE 6
 typedef struct {
     uint8_t bw, bh;               // blocks
     uint8_t start_x, start_y;     // the head's cell, on a new game (heading right)
@@ -48,6 +52,13 @@ static const uint8_t in_order[] = {O_BUTTON, SW_ORDER(1), 5, 1, O_BUTTON, SW_ORD
 static const uint8_t head_tail[] = {O_BUTTON, SW_TAIL, 2, 3, O_BUTTON, SW_HEAD, 6, 3, O_END};
 static const uint8_t beetle[] = {O_BEETLE, 5, 2, O_END};
 static const uint8_t guard[] = {O_BEETLE, 3, 1, O_BUTTON, SW_LATCH | SW_HEAVY, 6, 5, O_END};
+// Two blades guard the way down to the button: cross their rows where they
+// can't reach you in time, or set one off and slip by while it comes back.
+static const uint8_t blades[] = {O_BLADE, 7, 2, O_BLADE, 0, 6, O_BUTTON, SW_LATCH, 6, 6, O_END};
+// Spikes in three walls, firing in turn; the buttons are in the corners.
+static const uint8_t spikes[] = {
+    O_SPIKES, DIR_UP, 2, 16, 0, O_SPIKES, DIR_LEFT, 2, 14, 60, O_SPIKES, DIR_DOWN, 2, 16, 120,
+    O_BUTTON, SW_LATCH, 0, 0, O_BUTTON, SW_LATCH, 0, 6, O_END};
 
 // The map (x right, y down), and the way through: west from the entrance, up
 // the left side, across the top (the ring is a side room), down the right and
@@ -56,8 +67,10 @@ static const uint8_t guard[] = {O_BEETLE, 3, 1, O_BUTTON, SW_LATCH | SW_HEAVY, 6
 //   THE RING      COIL A BEETLE   BEETLE GUARD    HEAD AND TAIL
 //   THE S         FOUR CORNERS    HEAVY BUTTONS   IN ORDER
 //   QUICK STEPS   TWO BUTTONS     ENTRANCE        TREASURE
+//                 SPIKE WALLS     BLADE TRAPS
+// (the hazards: down from the entrance, a side trip.)
 static const Room rooms[ROOM_COUNT] = {
-    {8, 7, 7, 6, 3, 3, 1, 2, 2, {D_LOCK, D_OPEN, D_THEIRS, D_WALL}, empty, "ENTRANCE"},
+    {8, 7, 7, 6, 3, 3, 1, 2, 2, {D_LOCK, D_OPEN, D_THEIRS, D_OPEN}, empty, "ENTRANCE"},
     {8, 7, 7, 8, 3, 3, 1, 1, 2, {D_OPEN, D_MINE, D_WALL, D_WALL}, two_buttons, "TWO BUTTONS"},
     {8, 7, 6, 14, 3, 3, 1, 0, 2, {D_THEIRS, D_WALL, D_MINE, D_WALL}, quick, "QUICK STEPS"},
     {8, 7, 7, 8, 3, 11, 1, 0, 1, {D_MINE, D_WALL, D_WALL, D_THEIRS}, s_curve, "THE S"},
@@ -69,6 +82,8 @@ static const Room rooms[ROOM_COUNT] = {
     {8, 7, 7, 8, 3, 3, 1, 3, 1, {D_WALL, D_MINE, D_THEIRS, D_WALL}, in_order, "IN ORDER"},
     {8, 7, 7, 8, 4, 4, 1, 2, 1, {D_THEIRS, D_WALL, D_WALL, D_MINE}, heavy, "HEAVY BUTTONS"},
     {8, 7, 7, 8, 3, 3, 2, 3, 2, {D_WALL, D_LOCK, D_WALL, D_WALL}, empty, "TREASURE"},
+    {8, 7, 7, 8, 3, 3, 1, 2, 3, {D_WALL, D_MINE, D_OPEN, D_WALL}, blades, "BLADE TRAPS"},
+    {8, 7, 7, 8, 3, 3, 1, 1, 3, {D_THEIRS, D_WALL, D_WALL, D_WALL}, spikes, "SPIKE WALLS"},
 };
 
 uint8_t room_id;
@@ -83,6 +98,11 @@ uint8_t door_x, door_y;
 uint8_t en_count;
 uint8_t en_cx[ENEMY_MAX], en_cy[ENEMY_MAX];
 uint8_t key_x, key_y, key_shown;
+uint8_t spk_count;
+uint8_t spk_side[SPIKE_MAX], spk_from[SPIKE_MAX], spk_n[SPIKE_MAX], spk_phase[SPIKE_MAX];
+uint8_t spk_state[SPIKE_MAX];
+uint8_t bl_count;
+uint8_t bl_hx[BLADE_MAX], bl_hy[BLADE_MAX];
 uint8_t room_done[ROOM_COUNT], room_seen[ROOM_COUNT], room_locks[ROOM_COUNT], key_got[ROOM_COUNT];
 uint8_t keys;
 uint8_t map_ox, map_oy;
@@ -198,11 +218,27 @@ void room_load(void) BANKED {
     // Its switches, enemies and key.
     const uint8_t *o = r->objects;
     uint8_t cells = 0;
-    sw_count = en_count = 0;
+    sw_count = en_count = spk_count = bl_count = 0;
     key_x = key_y = 0xFF;
     for (;;) {
         uint8_t kind = *o++;
         if (kind == O_END) break;
+        if (kind == O_SPIKES) {
+            uint8_t i = spk_count++;
+            spk_side[i] = o[0];
+            spk_from[i] = o[1];
+            spk_n[i] = o[2];
+            spk_phase[i] = o[3];
+            o += 4;
+            continue;
+        }
+        if (kind == O_BLADE) {
+            bl_hx[bl_count] = (ROOM_X0 + (o[0] << 1)) << 3;
+            bl_hy[bl_count] = (ROOM_Y0 + (o[1] << 1)) << 3;
+            bl_count++;
+            o += 2;
+            continue;
+        }
         if (kind == O_KEY) {
             key_x = o[0];
             key_y = o[1];
@@ -277,7 +313,14 @@ static uint8_t cell(uint8_t x, uint8_t y) {
             cell_attr = PLAY_PAL_LIT;
             return T_KEY;
         }
-        uint8_t id = (occupied[((uint16_t)y << 5) | x] >> 1) & 15;
+        uint8_t occ = occupied[((uint16_t)y << 5) | x];
+        if ((occ & OCC_SPIKE) && spk_state[occ >> 6] == SPK_OUT) {
+            // Spikes out over the floor, from their wall.
+            uint8_t s = spk_side[occ >> 6];
+            cell_attr = PLAY_PAL_SPIKE | (s == DIR_DOWN ? A_FLIPY : s == DIR_RIGHT ? A_FLIPX : 0);
+            return s >= DIR_UP ? T_SPIKE_D : T_SPIKE_R;
+        }
+        uint8_t id = (occ >> 1) & 15;
         if (id) {
             id--;
             if (sw_flags[id] & SW_STONES) {
@@ -289,6 +332,20 @@ static uint8_t cell(uint8_t x, uint8_t y) {
         }
         cell_attr = PLAY_PAL_BOARD;
         return FLOOR_TILE(x, y);
+    }
+    // A spike plate: in a run along the wall beside its open cells.
+    for (uint8_t i = 0; i < spk_count; i++) {
+        uint8_t s = spk_side[i], along;
+        if (s >= DIR_UP) {
+            if (y != (s == DIR_UP ? DOOR_Y : B)) continue;
+            along = x;
+        } else {
+            if (x != (s == DIR_LEFT ? 1 : W - 2) || !y || y == B) continue;
+            along = y;
+        }
+        if ((uint8_t)(along - spk_from[i]) >= spk_n[i]) continue;
+        cell_attr = PLAY_PAL_SPIKE;
+        return spk_state[i] == SPK_WARN ? T_PLATE_WARN : T_PLATE;
     }
     // The walls, seen from a little above: tops all round, the side walls'
     // edges, the back wall's face, the near wall. The right-hand ones flip.
@@ -322,7 +379,7 @@ void room_draw(void) BANKED {
 // The map: a box per room seen (the one you're in, lit), the doors between
 // them (dotted while shut), the room's name and the keys carried.
 #define MAP_X0 2  // the grid's top-left tile: rooms 3x2 tiles, a tile apart
-#define MAP_Y0 4
+#define MAP_Y0 3
 void map_draw(void) BANKED {
     fill_win_rect(0, 0, SCREEN_TW, SCREEN_TH, 0);
     win_text(4, 1, "DUNGEON MAP");
@@ -340,7 +397,7 @@ void map_draw(void) BANKED {
             else set_win_tile_xy(x + 1, y + 2, open ? T_MAP_DOOR_V : T_MAP_SHUT_V);
         }
     }
-    win_text(2, 14, rooms[room_id].name);
+    win_text(2, 15, rooms[room_id].name);
     win_text(2, 16, "KEYS");
     win_number(7, 16, keys, 1, 1);
 }

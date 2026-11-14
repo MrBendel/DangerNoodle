@@ -39,6 +39,10 @@
 #define T_MAP_DOOR_V (SCENE_TILES + 60)
 #define T_MAP_SHUT_H (SCENE_TILES + 61)  // and shut ones, dotted
 #define T_MAP_SHUT_V (SCENE_TILES + 62)
+#define T_PLATE (SCENE_TILES + 63)       // a spike plate in a wall, and its holes glowing (about to fire)
+#define T_PLATE_WARN (SCENE_TILES + 64)
+#define T_SPIKE_D (SCENE_TILES + 65)     // spikes out over the floor, from the back wall (flip Y: the near wall)
+#define T_SPIKE_R (SCENE_TILES + 66)     // ... from the left wall (flip X: the right)
 // Background tile attributes (VRAM bank 1): bits 0-2 palette, 5 x flip, 6 y flip.
 #define A_FLIPX 0x20
 #define A_FLIPY 0x40

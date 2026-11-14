@@ -1,17 +1,19 @@
 {
   "title": "8a744fce",
-  "play": "414f083f",
-  "paused": "d812cbd4",
+  "play": "f6df6a51",
+  "paused": "4a30a200",
   "game-over": "2b47ec5d",
   "play-big-room": "9a71e993",
-  "play-corners": "56c2b2a0",
+  "play-corners": "e152d0ce",
   "play-shape-made": "0bfddda0",
   "play-next-room": "9aa10f88",
-  "title-room-pick": "02997515",
+  "title-room-pick": "028a8e81",
   "room-beetle-cracked": "6446dcd7",
   "room-four-corners": "19b484f3",
-  "room-slide": "88d50074",
+  "room-slide": "68ab5f38",
   "room-came-in": "e8f0c9f3",
-  "map": "0645170a",
-  "treasure": "5f31a3f9"
+  "map": "05da91ef",
+  "treasure": "5f31a3f9",
+  "room-spikes-out": "600d743c",
+  "room-blade": "d6b400ef"
 }

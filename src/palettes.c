@@ -41,6 +41,9 @@ static const uint16_t marks_lit[4] = {GRASS, C(255, 240, 160), C(255, 160, 40), 
 static const uint16_t beetle[4] = {0, C(160, 216, 248), C(48, 104, 184), C(16, 24, 48)};
 static const uint16_t beetle_soft[4] = {0, C(255, 228, 208), C(240, 136, 136), C(88, 24, 40)};
 static const uint16_t beetle_angry[4] = {0, C(255, 208, 128), C(232, 64, 40), C(64, 16, 16)};
+// Hazards: steel spikes (red holes before they fire), and steel blades.
+static const uint16_t spikes[4] = {GRASS, C(208, 212, 224), C(80, 84, 104), C(232, 48, 32)};
+static const uint16_t steel[4] = {0, C(240, 244, 255), C(144, 152, 176), C(32, 32, 48)};
 // The HUD row (the GB Studio font): dark band, light letters.
 static const uint16_t hud[4] = {C(24, 40, 24), C(24, 40, 24), C(136, 192, 88), C(232, 244, 216)};
 
@@ -49,7 +52,8 @@ void palettes_play(void) BANKED {
     set_bg(PLAY_PAL_WALL, walls);
     set_bg(PLAY_PAL_NOODLE, noodle);
     set_bg(PLAY_PAL_FOOD, food);
-    set_bg(PLAY_PAL_TEXT, hud);
+    set_bg(PLAY_PAL_SPIKE, spikes);
+    memcpy(&pal_base_obj[SPR_PAL_STEEL << 2], steel, 8);
     set_bg(PLAY_PAL_MARK, marks);
     set_bg(PLAY_PAL_LIT, marks_lit);
     memcpy(&pal_base_obj[SPR_PAL_BEETLE << 2], beetle, 8);

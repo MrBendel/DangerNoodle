@@ -307,6 +307,33 @@ const button = (g) => buttonBase.map((row, y) =>
   y < 5 || y > 10 ? row : row.slice(0, 5) + [...g[y - 5]].map((c, i) => (c === '.' ? row[5 + i] : c)).join('') + row.slice(11));
 
 // Order matters: src/room.h names them (T_GRASS ...).
+
+// --- Hazards: a spike plate set in a wall (palette PLAY_PAL_SPIKE: 1 steel,
+// 2 dark steel, 3 red), its holes glowing red a moment before it fires, and the
+// spikes out over the floor cell beside it (pointing down; right: transposed;
+// src/play.c flips them for up and left) ---
+const plate = [
+  '22222222',
+  '21111112',
+  '21211212',
+  '21111112',
+  '21111112',
+  '21211212',
+  '21111112',
+  '22222222',
+];
+const plateWarn = plate.map((r, y) => (y === 2 || y === 5 ? '21311312' : r));
+const spikeDown = [
+  '12211221',
+  '12211221',
+  '.12..12.',
+  '.12..12.',
+  '.12..12.',
+  '..1...1.',
+  '..1...1.',
+  '........',
+];
+
 export const BOARD_TILES = [
   ...quarters(grass, 'grass'),  // T_GRASS: 4 tiles
   wallCap, wallEdge, wallFace, wallBottom, wallCorner,  // T_WALL_CAP ... T_WALL_CORNER
@@ -319,6 +346,7 @@ export const BOARD_TILES = [
   doorWShut, doorWOpen, doorWLock,  // T_DOORW_SHUT ... (a side wall)
   key,                              // T_KEY
   mapRoom, mapHere, mapDoorH, mapDoorV, mapShutH, mapShutV,  // T_MAP_ROOM ...
+  plate, plateWarn, spikeDown, transpose(spikeDown),  // T_PLATE, T_PLATE_WARN, T_SPIKE_D, T_SPIKE_R
 ];
 
 // The noodle's moving ends as sprites (src/play.c slides them between cells):
@@ -367,6 +395,26 @@ const beetleCracked = [
   '....3...',
   '........',
 ];
+// A blade trap, 16x16: a spiked steel ball, its left column (the right is a
+// flip). Sprite colors: 1 shine, 2 steel, 3 outline.
+const blade = [
+  '.......3',
+  '......31',
+  '.3...312',
+  '.33.3122',
+  '..331222',
+  '..312222',
+  '.3122221',
+  '31222211',
+  '31222211',
+  '.3122221',
+  '..312222',
+  '..331222',
+  '.33.3122',
+  '.3...312',
+  '......31',
+  '.......3',
+];
 export const NOODLE_SPRITE_TILES = [
   headRight, blank,                    // S_HEAD_R (left: flipped in X)
   transpose(headRight), blank,         // S_HEAD_D
@@ -377,6 +425,7 @@ export const NOODLE_SPRITE_TILES = [
   beetleA.slice(0, 8), beetleA.slice(8),              // S_BEETLE
   beetleB.slice(0, 8), beetleB.slice(8),              // S_BEETLE + 2: its other step
   beetleCracked.slice(0, 8), beetleCracked.slice(8),  // S_BEETLE + 4
+  blade.slice(0, 8), blade.slice(8),                  // S_BLADE
 ];
 
 /** 8 strings -> 16 bytes of 2bpp. */
